@@ -1,13 +1,27 @@
 ﻿using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
+using System.Data.Objects;
 using JabbR.Models.Mapping;
 
 namespace JabbR.Models
 {
+    using System;
+
     public class JabbrContext : DbContext
     {
         public JabbrContext()
             : base("Jabbr")
         {
+            ((IObjectContextAdapter)this).ObjectContext.ObjectMaterialized += ObjectMaterialized;
+        }
+
+        private void ObjectMaterialized(object sender, ObjectMaterializedEventArgs evt)
+        {
+            var entityChatUser = evt.Entity as ChatUser;
+            if (entityChatUser != null)
+            {
+                entityChatUser.LastActivity = DateTime.SpecifyKind(entityChatUser.LastActivity, DateTimeKind.Utc);
+            }
         }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
