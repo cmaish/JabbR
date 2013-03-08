@@ -5,12 +5,12 @@
 <html>
 <head>
     <title>JabbR</title>
-    <meta http-equiv="X-UA-Compatible" content="IE=9" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="description" content="A real-time chat application." />
     <meta name="keywords" content="chat,realtime chat,signalr,jabbr" />
-    <link href="/Content/images/logo32.png" rel="icon" type="image/png" sizes="32x32">
-    <link href="/Content/images/logo64.png" rel="icon" type="image/png" sizes="64x64">
-    <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon" sizes="16x16">
+    <link href="@Url.Content("~/Content/images/logo32.png")" rel="icon" type="image/png" sizes="32x32">
+    <link href="@Url.Content("~/Content/images/logo64.png")" rel="icon" type="image/png" sizes="64x64">
+    <link href="@Url.Content("~/favicon.ico")" rel="shortcut icon" type="image/x-icon" sizes="16x16">
     @{ 
         WriteLiteral(Bundle.Css()
             .Add("~/Content/bootstrap.min.css")
@@ -324,6 +324,9 @@
             Refresh your browser to get the latest. Auto update will take place in 15 seconds.
           </p>
         </div>
+      </div>
+      <div id="reloadMessageNotification" class="reload-message alert alert-info">
+        <button type="button" class="close" data-dismiss="alert">&times;</button><a href="#">Load missing messages</a>
       </div>
     </section>
   </section> 
