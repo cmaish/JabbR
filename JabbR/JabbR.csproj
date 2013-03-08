@@ -196,6 +196,7 @@
     <Content Include="Chat.css" />
     <Content Include="Chat.documentOnWrite.js" />
     <Content Include="Chat.js" />
+    <Content Include="Chat.title.js" />
     <Content Include="Chat.toast.js" />
     <Content Include="Chat.twitter.js" />
     <Content Include="Chat.ui.js" />
@@ -877,6 +878,8 @@
     <Content Include="Scripts\quicksilver.js" />
     <Content Include="Scripts\qunit.js" />
     <Content Include="Chat.dictionary.css" />
+    <Content Include="Scripts\tinycon.js" />
+    <Content Include="Scripts\tinycon.min.js" />
     <Content Include="Web.config">
       <SubType>Designer</SubType>
     </Content>

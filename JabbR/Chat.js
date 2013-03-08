@@ -3,7 +3,7 @@
 /// <reference path="Scripts/jquery.cookie.js" />
 /// <reference path="Chat.ui.js" />
 
-(function ($, connection, window, ui, utility) {
+(function ($, connection, window, ui, utility, title) {
     "use strict";
 
     var chat = connection.chat,
@@ -174,12 +174,7 @@
     }
 
     function updateTitle() {
-        if (unread === 0) {
-            document.title = originalTitle;
-        }
-        else {
-            document.title = (isUnreadMessageForUser ? '*' : '') + '(' + unread + ') ' + originalTitle;
-        }
+        title.updateTitle(originalTitle, unread, isUnreadMessageForUser);
     }
 
     function updateUnread(room, isMentioned) {
@@ -1005,4 +1000,4 @@
         initConnection();
     });
 
-})(jQuery, $.connection, window, window.chat.ui, window.chat.utility);
+})(jQuery, $.connection, window, window.chat.ui, window.chat.utility, window.chat.title);
