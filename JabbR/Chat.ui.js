@@ -65,6 +65,19 @@
         connectionInfoTransport = null,
         $topicBar;
 
+    function getRoomNameFromHash(hash) {
+        if (hash.length && hash[0] == '/') {
+            hash = hash.substr(1);
+        }
+
+        var parts = hash.split('/');
+        if (parts[0] === 'rooms') {
+            return parts[1];
+        }
+
+        return null;
+    }
+
     function getRoomId(roomName) {
         return window.escape(roomName.toLowerCase()).replace(/[^a-z0-9]/, '_');
     }
@@ -81,12 +94,11 @@
         return $closedRoomFilter.is(':checked');
     }
 
-    function Room($tab, $usersContainer, $usersOwners, $usersActive, $usersIdle, $messages, $roomTopic) {
+    function Room($tab, $usersContainer, $usersOwners, $usersActive, $messages, $roomTopic) {
         this.tab = $tab;
         this.users = $usersContainer;
         this.owners = $usersOwners;
         this.activeUsers = $usersActive;
-        this.idleUsers = $usersIdle;
         this.messages = $messages;
         this.roomTopic = $roomTopic;
 
@@ -237,7 +249,6 @@
             this.messages.empty();
             this.owners.empty();
             this.activeUsers.empty();
-            this.idleUsers.empty();
         };
 
         this.makeInactive = function () {
@@ -330,13 +341,13 @@
         };
 
         this.addUser = function (userViewModel, $user) {
-            if (userViewModel.active) {
-                this.addUserToList($user, this.activeUsers);
-            } else if (userViewModel.owner) {
+            if (userViewModel.owner) {
                 this.addUserToList($user, this.owners);
-            }
-            else {
-                this.addUserToList($user, this.idleUsers);
+            } else {
+                userViewModel.active ? $user.removeClass('idle') : $user.addClass('idle');
+
+                this.addUserToList($user, this.activeUsers);
+
             }
         };
 
@@ -369,13 +380,14 @@
             }
 
             if (!this.appearsInList($user, this.activeUsers)) {
+                status ? $user.removeClass('idle') : $user.addClass('idle');
+
                 this.addUserToList($user, this.activeUsers);
             }
         };
 
         this.sortLists = function () {
             this.sortList(this.activeUsers);
-            this.sortList(this.idleUsers);
         };
 
         this.sortList = function (listToSort) {
@@ -399,7 +411,6 @@
                         $('#userlist-' + roomId),
                         $('#userlist-' + roomId + '-owners'),
                         $('#userlist-' + roomId + '-active'),
-                        $('#userlist-' + roomId + '-idle'),
                         $('#messages-' + roomId),
                         $('#roomTopic-' + roomId));
         return room;
@@ -410,7 +421,6 @@
                         $('.users.current'),
                         $('.userlist.current .owners'),
                         $('.userlist.current .active'),
-                        $('.userlist.current .idle'),
                         $('.messages.current'),
                         $('.roomTopic.current'));
         return room;
@@ -584,7 +594,15 @@
     }
 
     function navigateToRoom(roomName) {
-        document.location.hash = '#/rooms/' + roomName;
+        var hash = (document.location.hash || '#').substr(1),
+            hashRoomName = getRoomNameFromHash(hash);
+
+        if (hashRoomName && hashRoomName === roomName) {
+            ui.setActiveRoomCore(roomName);
+        }
+        else {
+            document.location.hash = '#/rooms/' + roomName;
+        }
     }
 
     function processMessage(message, roomName) {
@@ -617,8 +635,10 @@
     }
 
     function triggerFocus() {
-        ui.focus = true;
-        $ui.trigger(ui.events.focusit);
+        if (focus === false) {
+            focus = true;
+            $ui.trigger(ui.events.focusit);
+        }
     }
 
     function loadPreferences() {
@@ -684,6 +704,8 @@
     function triggerSend() {
         var msg = $.trim($newMessage.val());
 
+        focus = true;
+
         if (msg) {
             if (msg.toLowerCase() == '/login') {
                 ui.showLogin();
@@ -695,8 +717,6 @@
 
         $newMessage.val('');
         $newMessage.focus();
-
-        triggerFocus();
 
         // always scroll to bottom after new message sent
         var room = getCurrentRoomElements();
@@ -881,7 +901,7 @@
             connectionInfoStatus = '#connection-status';
             connectionInfoTransport = '#connection-transport';
             $topicBar = $('#topic-bar');
-            
+
             if (toast.canToast()) {
                 $toast.show();
             }
@@ -1157,7 +1177,7 @@
             });
 
             $window.blur(function () {
-                ui.focus = false;
+                focus = false;
                 $ui.trigger(ui.events.blurit);
             });
 
@@ -1286,7 +1306,7 @@
                     slash = path.lastIndexOf('\\'),
                     name = path.substring(slash + 1),
                     uploader = {
-                        submitFile: function (connectionId, room) {                            
+                        submitFile: function (connectionId, room) {
                             $fileConnectionId.val(connectionId);
 
                             $fileRoom.val(room);
@@ -1304,14 +1324,9 @@
         },
         run: function () {
             $.history.init(function (hash) {
-                if (hash.length && hash[0] == '/') {
-                    hash = hash.substr(1);
-                }
+                var roomName = getRoomNameFromHash(hash);
 
-                var parts = hash.split('/');
-                if (parts[0] === 'rooms') {
-                    var roomName = parts[1];
-
+                if (roomName) {
                     if (ui.setActiveRoomCore(roomName) === false && roomName !== 'Lobby') {
                         $ui.trigger(ui.events.openRoom, [roomName]);
                     }
@@ -1543,6 +1558,7 @@
             }
             $user.attr('data-active', true);
             $user.data('active', true);
+            $user.removeClass('idle');
             return true;
         },
         setUserInActive: function ($user) {
@@ -1754,14 +1770,14 @@
                         ui.notify(true);
                     }
 
-                    if (ui.focus === false && anyRoomPreference('canToast') === true) {
+                    if (focus === false && anyRoomPreference('canToast') === true) {
                         // Only toast if there's no focus (even on mentions)
                         ui.toast(message, true, roomName);
                     }
                 }
                 else {
                     // Only toast if chat isn't focused
-                    if (ui.focus === false) {
+                    if (focus === false) {
                         ui.notifyRoom(roomName);
                         ui.toastRoom(roomName, message);
                     }
@@ -1784,8 +1800,7 @@
                 content = collapseRichContent(content);
             }
 
-            $(content).appendTo($message.find('.middle'))
-                      .wrap('<p/>');
+            $message.find('.middle').append('<p>' + content + '</p>');
         },
         addPrivateMessage: function (content, type) {
             var rooms = getAllRoomElements();
@@ -1859,7 +1874,7 @@
             $(newMessage).appendTo(room.messages);
         },
         hasFocus: function () {
-            return ui.focus;
+            return focus;
         },
         getShortcuts: function () {
             return ui.shortcuts;
@@ -2031,7 +2046,6 @@
             var room = getRoomElements(roomName),
                 $user = room.getUser(userViewModel.name);
 
-            console.log('changeNote');
             updateNote(userViewModel, $user);
         },
         changeFlag: function (userViewModel, roomName) {

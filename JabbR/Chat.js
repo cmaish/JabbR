@@ -12,7 +12,6 @@
         originalTitle = document.title,
         unread = 0,
         isUnreadMessageForUser = false,
-        focus = true,
         loadingHistory = false,
         checkingStatus = false,
         typing = false,
@@ -123,11 +122,16 @@
     }
 
     function populateLobbyRooms() {
-        // Populate the user list with room names
-        chat.server.getRooms()
-            .done(function (rooms) {
-                ui.populateLobbyRooms(rooms);
-            });
+        try {
+            // Populate the user list with room names
+            chat.server.getRooms()
+                .done(function (rooms) {
+                    ui.populateLobbyRooms(rooms);
+                });
+        }
+        catch (e) {
+            connection.hub.log('getRooms failed');
+        }
     }
 
     function scrollIfNecessary(callback, room) {
@@ -168,7 +172,8 @@
             id: message.Id,
             date: message.When.fromJsonDate(),
             highlight: re.test(message.Content) ? 'highlight' : '',
-            isOwn: re.test(message.User.name)
+            isOwn: re.test(message.User.name),
+            isMine: message.User.Name == chat.state.name
         };
     }
 
@@ -192,8 +197,14 @@
         }
     }
 
+    function clearUnread() {
+        isUnreadMessageForUser = false;
+        unread = 0;
+        updateUnread(chat.state.activeRoom, false);
+    }
+
     function updateUnread(room, isMentioned) {
-        if (focus === false) {
+        if (ui.hasFocus() === false) {
             isUnreadMessageForUser = (isUnreadMessageForUser || isMentioned);
 
             unread = unread + 1;
@@ -213,7 +224,9 @@
     // When the /join command gets raised this is called
     chat.client.joinRoom = function (room) {
         var added = ui.addRoom(room);
+
         ui.setActiveRoom(room.Name);
+
         if (room.Private) {
             ui.setRoomLocked(room.Name);
         }
@@ -623,7 +636,6 @@
         if (isSelf(user)) {
             ui.setActiveRoom('Lobby');
             ui.removeRoom(room);
-            ui.addMessage('You have left ' + room, 'notification');
         }
         else {
             ui.removeUser(user, room);
@@ -733,6 +745,10 @@
         ui.addMessage('ADMIN: ' + message, 'broadcast', room);
     };
 
+    chat.client.outOfSync = function () {
+        ui.showUpdateUI();
+    };
+
     $ui.bind(ui.events.typing, function () {
         // If not in a room, don't try to send typing notifications
         if (!chat.state.activeRoom) {
@@ -761,6 +777,8 @@
     });
 
     $ui.bind(ui.events.sendMessage, function (ev, msg) {
+        clearUnread();
+
         var id = utility.newId(),
             clientMessage = {
                 id: id,
@@ -784,7 +802,8 @@
                 message: ui.processContent(clientMessage.content),
                 id: clientMessage.id,
                 date: new Date(),
-                highlight: ''
+                highlight: '',
+                isMine: true
             };
 
             ui.addChatMessage(viewModel, clientMessage.room);
@@ -807,11 +826,7 @@
 
         try {
             chat.server.send(clientMessage)
-                .done(function (requiresUpdate) {
-                    if (requiresUpdate === true) {
-                        ui.showUpdateUI();
-                    }
-
+                .done(function () {
                     if (messageCompleteTimeout) {
                         clearTimeout(messageCompleteTimeout);
                         delete pendingMessages[id];
@@ -838,33 +853,44 @@
     });
 
     $ui.bind(ui.events.focusit, function () {
-        isUnreadMessageForUser = false;
-        focus = true;
-        unread = 0;
-        updateTitle();
+        clearUnread();
 
-        chat.server.updateActivity();
+        try {
+            chat.server.updateActivity();
+        }
+        catch (e) {
+            connection.hub.log('updateActivity failed');
+        }
     });
 
     $ui.bind(ui.events.blurit, function () {
-        focus = false;
-
         updateTitle();
     });
 
     $ui.bind(ui.events.openRoom, function (ev, room) {
-        chat.server.send('/join ' + room, chat.state.activeRoom)
-            .fail(function (e) {
-                ui.setActiveRoom('Lobby');
-                ui.addMessage(e, 'error');
-            });
+        try {
+            chat.server.send('/join ' + room, chat.state.activeRoom)
+                .fail(function (e) {
+                    ui.setActiveRoom('Lobby');
+                    ui.addMessage(e, 'error');
+                });
+        }
+        catch (e) {
+            connection.hub.log('openRoom failed');
+        }
     });
 
     $ui.bind(ui.events.closeRoom, function (ev, room) {
-        chat.server.send('/leave ' + room, chat.state.activeRoom)
-            .fail(function (e) {
-                ui.addMessage(e, 'error');
-            });
+        try {
+            chat.server.send('/leave ' + room, chat.state.activeRoom)
+                .fail(function (e) {
+                    ui.addMessage(e, 'error');
+                });
+        }
+        catch (e) {
+            // This can fail if the server is offline
+            connection.hub.log('closeRoom room failed');
+        }
     });
 
     $ui.bind(ui.events.prevMessage, function () {
@@ -904,15 +930,20 @@
 
         loadingHistory = true;
 
-        // TODO: Show a little animation so the user experience looks fancy
-        chat.server.getPreviousMessages(roomInfo.messageId)
-            .done(function (messages) {
-                ui.prependChatMessages($.map(messages, getMessageViewModel), roomInfo.name);
-                loadingHistory = false;
-            })
-            .fail(function () {
-                loadingHistory = false;
-            });
+        try {
+            // TODO: Show a little animation so the user experience looks fancy
+            chat.server.getPreviousMessages(roomInfo.messageId)
+                .done(function (messages) {
+                    ui.prependChatMessages($.map(messages, getMessageViewModel), roomInfo.name);
+                    loadingHistory = false;
+                })
+                .fail(function () {
+                    loadingHistory = false;
+                });
+        }
+        catch (e) {
+            connection.hub.log('getPreviousMessages failed');
+        }
     });
 
     $(ui).bind(ui.events.reloadMessages, function () {
@@ -948,44 +979,28 @@
             }
 
             connection.hub.logging = logging;
-            connection.hub.start(options, function () {
-                chat.server.join()
-                .fail(function (e) {
-                    // So refresh the page, our auth token is probably gone
-                    performLogout();
-                })
-                .done(function () {
-                    // get list of available commands
-                    chat.server.getCommands()
-                        .done(function (commands) {
-                            ui.setCommands(commands);
-                        });
+            connection.hub.qs = "version=" + window.jabbrVersion;
+            connection.hub.start(options)
+                          .done(function () {
+                              chat.server.join()
+                              .fail(function (e) {
+                                  // So refresh the page, our auth token is probably gone
+                                  performLogout();
+                              })
+                              .done(function () {
+                                  // get list of available commands
+                                  chat.server.getCommands()
+                                      .done(function (commands) {
+                                          ui.setCommands(commands);
+                                      });
 
-                    // get list of available shortcuts
-                    chat.server.getShortcuts()
-                        .done(function (shortcuts) {
-                            ui.setShortcuts(shortcuts);
-                        });
-                });
-            });
-
-            connection.hub.reconnected(function () {
-                if (checkingStatus === true) {
-                    return;
-                }
-
-                checkingStatus = true;
-
-                chat.server.checkStatus()
-                    .done(function (requiresUpdate) {
-                        if (requiresUpdate === true) {
-                            ui.showUpdateUI();
-                        }
-                    })
-                    .always(function () {
-                        checkingStatus = false;
-                    });
-            });
+                                  // get list of available shortcuts
+                                  chat.server.getShortcuts()
+                                      .done(function (shortcuts) {
+                                          ui.setShortcuts(shortcuts);
+                                      });
+                              });
+                          });
 
             connection.hub.stateChanged(function (change) {
                 if (change.newState === $.connection.connectionState.reconnecting) {

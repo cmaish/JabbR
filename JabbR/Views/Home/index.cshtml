@@ -41,7 +41,7 @@
     </script>
     }
     <script id="new-message-template" type="text/x-jquery-tmpl">
-        <li class="message ${highlight} clearfix" id="m-${id}" data-name="${name}" data-timestamp="${date}">
+        <li class="message ${highlight} clearfix{{if isMine}} my-message{{/if}}" id="m-${id}" data-name="${name}" data-timestamp="${date}">
             <div class="left">
                 {{if showUser}}
                 <img src="https://secure.gravatar.com/avatar/${hash}?s=16&d=mm" class="gravatar" />
@@ -353,6 +353,9 @@
             .Render("~/Scripts/JabbR1_#.js"));
     }
   <script type="text/javascript" src="@Url.Content("~/signalr/hubs")"></script>
+  <script type="text/javascript">
+      window.jabbrVersion = '@Model.Version';
+  </script>
      @{
          
          WriteLiteral(Bundle.JavaScript().ForceDebugIf(() => Model.DebugMode)
