@@ -877,9 +877,9 @@
             $userCmdHelp = $('#jabbr-help #user');
             $updatePopup = $('#jabbr-update');
             focus = true;
-            $lobbyRoomFilterForm = $('#users-filter-form'),
-            $roomFilterInput = $('#users-filter'),
-            $closedRoomFilter = $('#users-filter-closed');
+            $lobbyRoomFilterForm = $('#room-filter-form'),
+            $roomFilterInput = $('#room-filter'),
+            $closedRoomFilter = $('#room-filter-closed');
             templates = {
                 userlist: $('#new-userlist-template'),
                 user: $('#new-user-template'),
@@ -1481,9 +1481,10 @@
                     return a.Count > b.Count ? -1 : 1;
                 });
 
-            lobby.users.empty();
+            lobby.users.find('ul').empty();
 
             $.each(sorted, function () {
+                var listClass = this.Closed ? '.userlist-lobby-closedrooms' : '.userlist-lobby-openrooms';
                 var $name = $('<span/>').addClass('name')
                                         .html(this.Name),
                     $count = $('<span/>').addClass('count')
@@ -1498,7 +1499,7 @@
                           .append($readonly)
                           .append($name)
                           .append($count)
-                          .appendTo(lobby.users);
+                          .appendTo(lobby.users.find(listClass));
 
                 if (this.Private) {
                     $li.addClass('locked');
