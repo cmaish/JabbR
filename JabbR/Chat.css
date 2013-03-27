@@ -223,7 +223,7 @@ form#send-message {
 {
   font-size: small;
   position: absolute;
-  top: 56px;
+  top: 55px;
   right: 0;
   width: 235px;
   bottom: 50px;
@@ -235,7 +235,7 @@ form#send-message {
 
 #userlist-lobby
 {
-  top: 120px;
+  top: 91px;
 }
 
 .users ul

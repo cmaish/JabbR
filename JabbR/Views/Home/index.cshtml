@@ -96,7 +96,7 @@
             ${listname}
         </h3>
         <div>
-            <ul id="${id}" />
+            <ul id="${id}" data-empty-message="No users" />
         </div>
     </script>
     <script id="new-tab-template" type="text/x-jquery-tmpl">
@@ -227,21 +227,17 @@
       </ul>
       <form id="room-filter-form" action="#">
         <input id="room-filter" class="filter" type="text" />
-        <label id="room-filter-closed-area">
-          <input id="room-filter-closed" type="checkbox" />
-          Show Closed Rooms?
-        </label>
       </form>
       <div id="userlist-lobby" class="users current">
         <h3 class="userlist-header nav-header"> - Open Rooms</h3>
         <div>
-          <ul class="userlist-lobby-openrooms">
+          <ul class="userlist-lobby-openrooms" data-empty-message="No rooms">
             
           </ul>
         </div>
         <h3 class="userlist-header nav-header"> - Closed Rooms</h3>
         <div>
-          <ul class="userlist-lobby-closedrooms">
+          <ul class="userlist-lobby-closedrooms" data-empty-message="No rooms">
             
           </ul>
         </div>
@@ -382,7 +378,6 @@
              .Add("~/Scripts/jquery.sortElements.js")
              .Add("~/Scripts/ba-linkify.min.js")
              .Add("~/Scripts/quicksilver.js")
-             .Add("~/Scripts/jquery.livesearch.js")
              .Add("~/Scripts/Markdown.Converter.js")
              .Add("~/Scripts/jquery.history.js")
              .Add("~/Chat.utility.js")
