@@ -45,12 +45,12 @@ form#send-message {
   text-decoration: none;
 }
 
-#users-filter-form 
+#room-filter-form 
 {
   display: none;
 }
 
-#users-filter
+#room-filter
 {
   position: absolute;
   top: 55px;
@@ -59,7 +59,7 @@ form#send-message {
   margin-top: 4px;
 }
 
-#users-filter-closed-area 
+#room-filter-closed-area 
 {
   position: absolute;
   top: 90px;
@@ -69,7 +69,7 @@ form#send-message {
   font-size: 13px;
 }
 
-#users-filter-closed {
+#room-filter-closed {
     margin: -4px 4px 0;
 }
 
@@ -236,8 +236,6 @@ form#send-message {
 #userlist-lobby
 {
   top: 120px;
-    background: none;
-    border: none;
 }
 
 .users ul

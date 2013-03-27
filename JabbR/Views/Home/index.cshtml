@@ -225,15 +225,27 @@
     <div id="chat-area" role="tabpanel">
       <ul id="messages-lobby" class="messages current" role="log">
       </ul>
-      <form id="users-filter-form" action="#">
-        <input id="users-filter" class="filter" type="text" />
-        <label id="users-filter-closed-area">
-          <input id="users-filter-closed" type="checkbox" />
+      <form id="room-filter-form" action="#">
+        <input id="room-filter" class="filter" type="text" />
+        <label id="room-filter-closed-area">
+          <input id="room-filter-closed" type="checkbox" />
           Show Closed Rooms?
         </label>
       </form>
-      <ul id="userlist-lobby" class="users current">
-      </ul>
+      <div id="userlist-lobby" class="users current">
+        <h3 class="userlist-header nav-header"> - Open Rooms</h3>
+        <div>
+          <ul class="userlist-lobby-openrooms">
+            
+          </ul>
+        </div>
+        <h3 class="userlist-header nav-header"> - Closed Rooms</h3>
+        <div>
+          <ul class="userlist-lobby-closedrooms">
+            
+          </ul>
+        </div>
+      </div>
       <form id="send-message" action="#">
       <div id="message-box">
         <textarea id="new-message" autocomplete="off" aria-autocomplete="none" accesskey="m"></textarea>
