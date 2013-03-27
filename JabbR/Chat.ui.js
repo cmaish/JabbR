@@ -1400,7 +1400,7 @@
                 triggerFocus();
                 room.makeActive();
 
-                ui.toggleMessageSection(room.isClosed());
+                ui.toggleMessageSection(room.isClosed(), room.isClosed() || room.isLobby());
 
                 $ui.trigger(ui.events.activeRoomChanged, [roomName]);
                 return true;
@@ -2066,11 +2066,13 @@
                 $hiddenFile.attr('disabled', 'disabled');
                 $submitButton.attr('disabled', 'disabled');
                 $newMessage.attr('disabled', 'disabled');
+                $fileUploadButton.attr('disabled', 'disabled');
             }
             else {
                 $hiddenFile.removeAttr('disabled');
                 $submitButton.removeAttr('disabled');
                 $newMessage.removeAttr('disabled');
+                $fileUploadButton.removeAttr('disabled');
             }
         },
         initializeConnectionStatus: function (transport) {
@@ -2131,12 +2133,11 @@
         },
         shouldCollapseContent: shouldCollapseContent,
         collapseRichContent: collapseRichContent,
-        toggleMessageSection: function (disabledIt) {
-            if (disabledIt) {
-                // disable button and textarea
+        toggleMessageSection: function (disableEdit, disableFileUpload) {
+            if (disableEdit) {
+                // disable send button and textarea
                 $newMessage.attr('disabled', 'disabled');
                 $submitButton.attr('disabled', 'disabled');
-
             } else if (!readOnly) {
                 // re-enable textarea button
                 $newMessage.attr('disabled', '');
@@ -2145,6 +2146,17 @@
                 // re-enable submit button
                 $submitButton.attr('disabled', '');
                 $submitButton.removeAttr('disabled');
+            }
+            
+            if (disableFileUpload) {
+                $fileUploadButton.attr('disabled', 'disabled');
+                $hiddenFile.attr('disabled', 'disabled');
+            } else {
+                // re-enable file upload button
+                $fileUploadButton.attr('disabled', '');
+                $fileUploadButton.removeAttr('disabled');
+                $hiddenFile.attr('disabled', '');
+                $hiddenFile.removeAttr('disabled');
             }
         },
         closeRoom: function (roomName) {

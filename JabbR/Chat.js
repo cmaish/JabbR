@@ -314,7 +314,7 @@
         ui.closeRoom(room);
 
         if (this.state.activeRoom === room) {
-            ui.toggleMessageSection(true);
+            ui.toggleMessageSection(true, true);
         }
     };
 
@@ -324,7 +324,7 @@
         ui.unCloseRoom(room);
 
         if (this.state.activeRoom === room) {
-            ui.toggleMessageSection(false);
+            ui.toggleMessageSection(false, false);
         }
     };
 
