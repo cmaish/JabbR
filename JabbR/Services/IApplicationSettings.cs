@@ -17,6 +17,8 @@ namespace JabbR.Services
 
         string ImagurClientId { get; }
         string AzureblobStorageConnectionString { get; }
+        string FileSystemUploadStorageLocation { get; }
+        string FileSystemUploadChatUrl { get; }
 
         int MaxFileUploadBytes { get; }
     }

@@ -1005,6 +1005,7 @@
     <Compile Include="Services\IAuthenticationTokenService.cs" />
     <Compile Include="Services\IChatNotificationService.cs" />
     <Compile Include="UploadHandlers\AzureBlobStorageHandler.cs" />
+    <Compile Include="UploadHandlers\FileSystemUploadHandler.cs" />
     <Compile Include="UploadHandlers\IUploadHandler.cs" />
     <Compile Include="Services\IKeyProvider.cs" />
     <Compile Include="Services\IMembershipService.cs" />

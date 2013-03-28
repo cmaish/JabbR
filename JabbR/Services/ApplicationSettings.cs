@@ -124,6 +124,22 @@ namespace JabbR.Services
             }
         }
 
+        public string FileSystemUploadStorageLocation
+        {
+            get
+            {
+                return ConfigurationManager.AppSettings["jabbr:fileSystemUploadStorageLocation"];
+            }
+        }
+        
+        public string FileSystemUploadChatUrl
+        {
+            get
+            {
+                return ConfigurationManager.AppSettings["jabbr:fileSystemUploadChatUrl"];
+            }
+        }
+
         public int MaxFileUploadBytes
         {
             get
