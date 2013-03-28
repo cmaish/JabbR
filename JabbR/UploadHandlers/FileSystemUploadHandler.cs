@@ -30,7 +30,14 @@ namespace JabbR.UploadHandlers
                                 "_" +
                                 Guid.NewGuid().ToString().Substring(0, 4) + Path.GetExtension(fileName);
 
-            string fileSystemLocation = Path.Combine(_settings.FileSystemUploadStorageLocation, uploadFileName);
+            string fileSystemUploadLocation = Path.GetFullPath(_settings.FileSystemUploadStorageLocation);
+
+            string fileSystemLocation = Path.GetFullPath(Path.Combine(fileSystemUploadLocation, uploadFileName));
+
+            if (!string.Equals(fileSystemLocation, Path.Combine(_settings.FileSystemUploadStorageLocation, uploadFileName), StringComparison.Ordinal))
+            {
+                return null;
+            }
 
             using (FileStream uploadStream = File.OpenWrite(fileSystemLocation))
             {
