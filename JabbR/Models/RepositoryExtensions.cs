@@ -77,6 +77,28 @@ namespace JabbR.Models
             return cached.Value;
         }
 
+        public static bool IsUserMuted(this IJabbrRepository repository, ICache cache, ChatUser user, ChatRoom room)
+        {
+            DateTime? cachedExpiry = cache.UserInRoomMuteExpiry(user, room);
+
+            if (cachedExpiry == null)
+            {
+                ChatUserRoomSettings roomSettings = repository.GetUserRoomSettings(user.Key, room.Key);
+                if (roomSettings != null && roomSettings.MuteExpiry != null)
+                {
+                    cachedExpiry = roomSettings.MuteExpiry.Value.DateTime;
+                }
+                else
+                {
+                    cachedExpiry = DateTime.MinValue;
+                }
+
+                cache.MuteUserInRoom(user, room, cachedExpiry.Value);
+            }
+
+            return cachedExpiry.Value > DateTime.Now;
+        }
+
         public static ChatUser VerifyUserId(this IJabbrRepository repository, string userId)
         {
             ChatUser user = repository.GetUserById(userId);

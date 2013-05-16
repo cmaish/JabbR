@@ -31,6 +31,8 @@ namespace JabbR.Services
 
         ChatClient GetClientById(string clientId, bool includeUser = false);
 
+        ChatUserRoomSettings GetUserRoomSettings(int userKey, int roomKey);
+
         void AddUserRoom(ChatUser user, ChatRoom room);
         void RemoveUserRoom(ChatUser user, ChatRoom room);
 
@@ -40,11 +42,13 @@ namespace JabbR.Services
         void Add(ChatUser user);
         void Add(ChatUserIdentity identity);
         void Add(Attachment attachment);
+        void Add(ChatUserRoomSettings userRoomSettings);
 
         void Remove(ChatClient client);
         void Remove(ChatRoom room);
         void Remove(ChatUser user);
         void Remove(ChatUserIdentity identity);
+        void Remove(ChatUserRoomSettings userRoomSettings);
         void CommitChanges();
 
         bool IsUserInRoom(ChatUser user, ChatRoom room);

@@ -52,6 +52,9 @@ namespace JabbR.Models
         // Private rooms this user is allowed to go into
         public virtual ICollection<ChatRoom> AllowedRooms { get; set; }
 
+        // Room setting records for this user
+        public virtual ICollection<ChatUserRoomSettings> RoomSettings { get; set; } 
+
         public ChatUser()
         {
             Identities = new SafeCollection<ChatUserIdentity>();
@@ -59,6 +62,7 @@ namespace JabbR.Models
             OwnedRooms = new SafeCollection<ChatRoom>();
             Rooms = new SafeCollection<ChatRoom>();
             AllowedRooms = new SafeCollection<ChatRoom>();
+            RoomSettings = new SafeCollection<ChatUserRoomSettings>();
             Attachments = new SafeCollection<Attachment>();
             Notifications = new SafeCollection<Notification>();
         }

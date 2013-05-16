@@ -18,6 +18,7 @@ namespace JabbR.Services
         private static readonly Func<JabbrContext, string, ChatRoom> getRoomByName = (db, roomName) => db.Rooms.FirstOrDefault(r => r.Name == roomName);
         private static readonly Func<JabbrContext, string, ChatClient> getClientById = (db, clientId) => db.Clients.FirstOrDefault(c => c.Id == clientId);
         private static readonly Func<JabbrContext, string, ChatClient> getClientByIdWithUser = (db, clientId) => db.Clients.Include(c => c.User).FirstOrDefault(u => u.Id == clientId);
+        private static readonly Func<JabbrContext, int, int, ChatUserRoomSettings> getUserRoomSettings = (db, userKey, roomKey) => db.UserRoomSettings.Include(s => s.User).Include(s => s.Room).FirstOrDefault(s => s.UserKey == userKey && s.RoomKey == roomKey);
 
         public PersistedRepository(JabbrContext db)
         {
@@ -73,6 +74,12 @@ namespace JabbR.Services
             _db.Notifications.Add(notification);
         }
 
+        public void Add(ChatUserRoomSettings userRoomSettings)
+        {
+            _db.UserRoomSettings.Add(userRoomSettings);
+            _db.SaveChanges();
+        }
+
         public void Remove(ChatRoom room)
         {
             _db.Rooms.Remove(room);
@@ -94,6 +101,12 @@ namespace JabbR.Services
         public void Remove(Notification notification)
         {
             _db.Notifications.Remove(notification);
+            _db.SaveChanges();
+        }
+
+        public void Remove(ChatUserRoomSettings userRoomSettings)
+        {
+            _db.UserRoomSettings.Remove(userRoomSettings);
             _db.SaveChanges();
         }
 
@@ -206,6 +219,35 @@ namespace JabbR.Services
             });
         }
 
+        public void MuteUserRoom(ChatUser user, ChatRoom room, DateTime mutedUntil)
+        {
+            RunNonLazy(() =>
+                {
+                    // get or create room settings
+                    var roomSettings = user.RoomSettings.SingleOrDefault(s => s.Room == room);
+                    if (roomSettings == null)
+                    {
+                        roomSettings = new ChatUserRoomSettings() { Room = room };
+                        user.RoomSettings.Add(roomSettings);
+                    }
+
+                    roomSettings.MuteExpiry = mutedUntil;
+                });
+        }
+
+        public void UnmuteUserRoom(ChatUser user, ChatRoom room)
+        {
+            RunNonLazy(() =>
+            {
+                // only remove the mute if we have settings
+                var roomSettings = user.RoomSettings.SingleOrDefault(s => s.Room == room);
+                if (roomSettings != null)
+                {
+                    roomSettings.MuteExpiry = DateTime.Now;
+                }
+            });
+        }
+
         private void RunNonLazy(Action action)
         {
             bool old = _db.Configuration.LazyLoadingEnabled;
@@ -272,6 +314,11 @@ namespace JabbR.Services
             return getClientById(_db, clientId);
         }
 
+        public ChatUserRoomSettings GetUserRoomSettings(int userKey, int roomKey)
+        {
+            return getUserRoomSettings(_db, userKey, roomKey);
+        }
+
         public bool IsUserInRoom(ChatUser user, ChatRoom room)
         {
             return _db.Entry(user)
@@ -286,6 +333,6 @@ namespace JabbR.Services
         public void Reload(object entity)
         {
             _db.Entry(entity).Reload();
-        }        
+        }
     }
 }

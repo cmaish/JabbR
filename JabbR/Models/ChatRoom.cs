@@ -23,6 +23,7 @@ namespace JabbR.Models
         // Private rooms
         public bool Private { get; set; }
         public virtual ICollection<ChatUser> AllowedUsers { get; set; }
+        public virtual ICollection<ChatUserRoomSettings> UserSettings { get; set; }
         public string InviteCode { get; set; }
 
         // Creator of the room
@@ -43,6 +44,7 @@ namespace JabbR.Models
             Messages = new SafeCollection<ChatMessage>();
             Users = new SafeCollection<ChatUser>();
             AllowedUsers = new SafeCollection<ChatUser>();
+            UserSettings = new SafeCollection<ChatUserRoomSettings>();
             Attachments = new SafeCollection<Attachment>();
         }
     }

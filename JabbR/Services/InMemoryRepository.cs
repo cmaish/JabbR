@@ -6,6 +6,8 @@ using JabbR.Models;
 
 namespace JabbR.Services
 {
+    using System.Data;
+
     public class InMemoryRepository : IJabbrRepository
     {
         private readonly ICollection<ChatUser> _users;
@@ -71,6 +73,22 @@ namespace JabbR.Services
             _notifications.Add(notification);
         }
 
+        public void Add(ChatUserRoomSettings userRoomSettings)
+        {
+            // Need to associate with both users and rooms
+            var room = _rooms.First(r => r.Key == userRoomSettings.RoomKey);
+            var user = _users.First(u => u.Key == userRoomSettings.UserKey);
+
+            // Check if we already have a value - this is a bit of a hack
+            if (user.RoomSettings.Any(rs => rs.RoomKey == room.Key))
+            {
+                throw new UpdateException("Violation of UNIQUE KEY constraint");
+            }
+
+            user.RoomSettings.Add(userRoomSettings);
+            room.UserSettings.Add(userRoomSettings);
+        }
+
         public void Remove(ChatClient client)
         {
             var user = _users.FirstOrDefault(u => client.User == u);
@@ -95,6 +113,13 @@ namespace JabbR.Services
         public void Remove(Notification notification)
         {
             _notifications.Remove(notification);
+        }
+
+        public void Remove(ChatUserRoomSettings userRoomSettings)
+        {
+            // Need to remove from both users and rooms
+            _rooms.First(r => r.Key == userRoomSettings.RoomKey).UserSettings.Remove(userRoomSettings);
+            _users.First(u => u.Key == userRoomSettings.UserKey).RoomSettings.Remove(userRoomSettings);
         }
 
         public void CommitChanges()
@@ -195,6 +220,18 @@ namespace JabbR.Services
         public ChatClient GetClientById(string clientId, bool includeUser = false)
         {
             return _users.SelectMany(u => u.ConnectedClients).FirstOrDefault(c => c.Id == clientId);
+        }
+
+        public ChatUserRoomSettings GetUserRoomSettings(int userKey, int roomKey)
+        {
+            var user = _users.SingleOrDefault(u => u.Key == userKey);
+            if (user == null)
+            {
+                return null;
+            }
+
+            var roomSettings = user.RoomSettings.SingleOrDefault(rs => rs.RoomKey == roomKey);
+            return roomSettings;
         }
 
         public IQueryable<ChatMessage> GetPreviousMessages(string messageId)

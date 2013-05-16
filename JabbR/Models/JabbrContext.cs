@@ -32,6 +32,8 @@ namespace JabbR.Models
 
             modelBuilder.Configurations.Add(new ChatUserMap());
 
+            modelBuilder.Configurations.Add(new ChatUserRoomSettingsMap());
+
             modelBuilder.Configurations.Add(new AttachmentMap());
 
             modelBuilder.Configurations.Add(new NotificationMap());
@@ -47,5 +49,6 @@ namespace JabbR.Models
         public DbSet<Attachment> Attachments { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Settings> Settings { get; set; }
+        public DbSet<ChatUserRoomSettings> UserRoomSettings { get; set; }
     }
 }

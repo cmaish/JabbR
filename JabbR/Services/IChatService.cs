@@ -24,6 +24,8 @@ namespace JabbR.Services
         void AddOwner(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
         void RemoveOwner(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
         void KickUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
+        void MuteUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom, double muteDurationMinutes);
+        void UnmuteUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
         void AllowUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
         void UnallowUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
         void LockRoom(ChatUser user, ChatRoom targetRoom);

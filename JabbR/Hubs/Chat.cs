@@ -173,6 +173,11 @@ namespace JabbR
                 throw new InvalidOperationException(String.Format("You cannot post messages to '{0}'. The room is closed.", clientMessage.Room));
             }
 
+            if (_repository.IsUserMuted(_cache, user, room))
+            {
+                throw new InvalidOperationException(String.Format("You cannot post messages to '{0}'. You are currently muted.", clientMessage.Room));
+            }
+
             // Update activity *after* ensuring the user, this forces them to be active
             UpdateActivity(user, room);
 
@@ -669,6 +674,18 @@ namespace JabbR
 
             // Tell the room the user left
             LeaveRoom(targetUser, room);
+        }
+
+        void INotificationService.MuteUser(ChatUser targetUser, ChatRoom room, double durationMinutes)
+        {
+            var userViewModel = new UserViewModel(targetUser);
+            Clients.Group(room.Name).mute(userViewModel, room.Name, durationMinutes);
+        }
+
+        void INotificationService.UnmuteUser(ChatUser targetUser, ChatRoom room)
+        {
+            var userViewModel = new UserViewModel(targetUser);
+            Clients.Group(room.Name).unmute(userViewModel, room.Name);
         }
 
         void INotificationService.OnUserCreated(ChatUser user)

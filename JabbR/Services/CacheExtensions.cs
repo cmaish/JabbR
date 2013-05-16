@@ -28,13 +28,39 @@ namespace JabbR.Services
         public static void RemoveUserInRoom(this ICache cache, ChatUser user, ChatRoom room)
         {
             cache.Remove(CacheKeys.GetUserInRoom(user, room));
+            cache.Remove(CacheKeys.GetUserInRoomMuted(user, room));
+        }
+
+        public static DateTime? UserInRoomMuteExpiry(this ICache cache, ChatUser user, ChatRoom room)
+        {
+            string key = CacheKeys.GetUserInRoomMuted(user, room);
+
+            return (DateTime?)cache.Get(key);
+        }
+
+        public static void MuteUserInRoom(this ICache cache, ChatUser user, ChatRoom room, DateTime muteExpiry)
+        {
+            string key = CacheKeys.GetUserInRoomMuted(user, room);
+
+            // Cache this forever so we don't have to hit the database much
+            cache.Set(key, muteExpiry, TimeSpan.FromDays(365));
+        }
+
+        public static void UnmuteUserInRoom(this ICache cache, ChatUser user, ChatRoom room)
+        {
+            MuteUserInRoom(cache, user, room, DateTime.Now);
         }
 
         private static class CacheKeys
         {
             public static string GetUserInRoom(ChatUser user, ChatRoom room)
             {
-                return "UserInRoom" + user.Key + "_" + room.Key;
+                return "UserInRoom_" + user.Key + "_" + room.Key;
+            }
+
+            public static string GetUserInRoomMuted(ChatUser user, ChatRoom room)
+            {
+                return "UserInRoom_Muted_" + user.Key + "_" + room.Key;
             }
         }
     }

@@ -537,6 +537,64 @@ namespace JabbR.Services
             LeaveRoom(targetUser, targetRoom);
         }
 
+        public void MuteUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom, double muteDurationMinutes)
+        {
+            EnsureOwnerOrAdmin(user, targetRoom);
+
+            if (targetUser == user)
+            {
+                throw new InvalidOperationException("Why would you want to mute yourself?");
+            }
+
+            // only admin can mute admin
+            if (!user.IsAdmin && targetUser.IsAdmin)
+            {
+                throw new InvalidOperationException("You cannot mute an admin. Only admin can mute admin.");
+            }
+
+            // If this user isn't the creator/admin AND the target user is an owner then throw
+            if (targetRoom.Creator != user && targetRoom.Owners.Contains(targetUser) && !user.IsAdmin)
+            {
+                throw new InvalidOperationException("Owners cannot mute other owners. Only the room creator can mute an owner.");
+            }
+
+            DateTime muteExpiry = DateTime.Now.AddMinutes(muteDurationMinutes);
+
+            // Update the cache
+            _cache.MuteUserInRoom(targetUser, targetRoom, muteExpiry);
+
+            // Mute the user in the user's room settings
+            ChatUserRoomSettings settings = _repository.GetUserRoomSettings(targetUser.Key, targetRoom.Key);
+            if (settings == null)
+            {
+                settings = new ChatUserRoomSettings()
+                    {
+                         RoomKey = targetRoom.Key,
+                         UserKey = targetUser.Key
+                    };
+                _repository.Add(settings);
+            }
+
+            settings.MuteExpiry = muteExpiry;
+
+            _repository.CommitChanges();
+        }
+
+        public void UnmuteUser(ChatUser user, ChatUser targetUser, ChatRoom targetRoom)
+        {
+            EnsureOwnerOrAdmin(user, targetRoom);
+
+            // Update the cache
+            _cache.UnmuteUserInRoom(targetUser, targetRoom);
+
+            ChatUserRoomSettings settings = _repository.GetUserRoomSettings(targetUser.Key, targetRoom.Key);
+            if (settings != null && settings.MuteExpiry > DateTime.Now)
+            {
+                settings.MuteExpiry = DateTime.Now;
+                _repository.CommitChanges();
+            }
+        }
+
         public ChatClient AddClient(ChatUser user, string clientId, string userAgent)
         {
             ChatClient client = _repository.GetClientById(clientId);
