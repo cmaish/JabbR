@@ -676,6 +676,14 @@
         ui.removeRoom(room);
         ui.addMessage('You were kicked from ' + room, 'notification');
     };
+    
+    chat.client.mute = function (user, room, durationMinutes) {
+        ui.addMessage(user.Name + ' has been muted in ' + room + ' for ' + durationMinutes + ' minute' + (durationMinutes !== 1 ? 's' : '') + '.', 'notification', this.state.activeRoom);
+    };
+
+    chat.client.unmute = function (user, room) {
+        ui.addMessage(user.Name + ' has been unmuted in ' + room + '.', 'notification', this.state.activeRoom);
+    };
 
     // Helpish commands
     chat.client.showRooms = function (rooms) {
