@@ -5,6 +5,8 @@ using System.Security.Claims;
 using JabbR.Infrastructure;
 using JabbR.Models;
 using JabbR.Services;
+using JabbR.Tests;
+
 using Moq;
 using Xunit;
 
@@ -635,28 +637,103 @@ namespace JabbR.Test
         public class AddMessage
         {
             [Fact]
-            public void AddsNewMessageToRepository()
+            public void AdminAddNewMessageWithoutRoomThrows()
             {
-                var repository = new InMemoryRepository();
-                var user = new ChatUser
-                {
-                    Name = "foo"
-                };
-                repository.Add(user);
-                var room = new ChatRoom
-                {
-                    Name = "Room"
-                };
-                repository.Add(room);
-                room.Users.Add(user);
-                user.Rooms.Add(room);
+                var sut = new ChatTestEnvironment();
+                string expectedError = "Use '/join room' to join a room.";
+                ChatMessage message = null;
+                var exception = Assert.Throws<InvalidOperationException>(() => message = sut.ChatService.AddMessage(sut.Admin.Id, null, "<!TestContent;>"));
+                Assert.Equal(expectedError, exception.Message);
+                Assert.Null(message);
+            }
 
-                var service = new ChatService(new Mock<ICache>().Object, repository);
-                ChatMessage message = service.AddMessage(user, room, Guid.NewGuid().ToString(), "Content");
+            [Fact]
+            public void UserAddNewMessageWithoutRoomThrows()
+            {
+                var sut = new ChatTestEnvironment();
+                string expectedError = "Use '/join room' to join a room.";
+                ChatMessage message = null;
+                var exception = Assert.Throws<InvalidOperationException>(() => message = sut.ChatService.AddMessage(sut.NewUser.Id, null, "<!TestContent;>"));
+                Assert.Equal(expectedError, exception.Message);
+                Assert.Null(message);
+            }
 
+            [Fact]
+            public void AdminAddNewMessageInUnjoinedThrows()
+            {
+                var sut = new ChatTestEnvironment();
+                string expectedError = String.Format("You're not in '{0}'. Use '/join {0}' to join it.", sut.PublicRoom.Name);
+                ChatMessage message = null;
+                var exception = Assert.Throws<InvalidOperationException>(() => message = sut.ChatService.AddMessage(sut.Admin.Id, sut.PublicRoom.Name, "<!TestContent;>"));
+                Assert.Equal(expectedError, exception.Message);
+                Assert.Null(message);
+            }
+
+            [Fact]
+            public void UserAddNewMessageInUnjoinedThrows()
+            {
+                var sut = new ChatTestEnvironment();
+                string expectedError = String.Format("You're not in '{0}'. Use '/join {0}' to join it.", sut.PublicRoom.Name);
+                ChatMessage message = null;
+                var exception = Assert.Throws<InvalidOperationException>(() => message = sut.ChatService.AddMessage(sut.NewUser.Id, sut.PublicRoom.Name, "<!TestContent;>"));
+                Assert.Equal(expectedError, exception.Message);
+                Assert.Null(message);
+            }
+
+            [Fact]
+            public void AdminAddNewMessageInClosedThrows()
+            {
+                var sut = new ChatTestEnvironment();
+                sut.ClosedPublicRoom.Users.Add(sut.Admin);
+                sut.Admin.Rooms.Add(sut.ClosedPublicRoom);
+
+                string expectedError = String.Format("You cannot post messages to '{0}'. The room is closed.", sut.ClosedPublicRoom.Name);
+                ChatMessage message = null;
+                var exception = Assert.Throws<InvalidOperationException>(() => message = sut.ChatService.AddMessage(sut.Admin.Id, sut.ClosedPublicRoom.Name, "<!TestContent;>"));
+                Assert.Equal(expectedError, exception.Message);
+                Assert.Null(message);
+            }
+
+            [Fact]
+            public void UserAddNewMessageInClosedThrows()
+            {
+                var sut = new ChatTestEnvironment();
+                sut.ClosedPublicRoom.Users.Add(sut.NewUser);
+                sut.NewUser.Rooms.Add(sut.ClosedPublicRoom);
+
+                string expectedError = String.Format("You cannot post messages to '{0}'. The room is closed.", sut.ClosedPublicRoom.Name);
+                ChatMessage message = null;
+                var exception = Assert.Throws<InvalidOperationException>(() => message = sut.ChatService.AddMessage(sut.NewUser.Id, sut.ClosedPublicRoom.Name, "<!TestContent;>"));
+                Assert.Equal(expectedError, exception.Message);
+                Assert.Null(message);
+            }
+
+            [Fact]
+            public void AdminAddNewMessageInJoinedSucceeds()
+            {
+                var sut = new ChatTestEnvironment();
+                sut.PublicRoom.Users.Add(sut.Admin);
+                sut.Admin.Rooms.Add(sut.PublicRoom);
+
+                ChatMessage message = sut.ChatService.AddMessage(sut.Admin.Id, sut.PublicRoom.Name, "<!TestContent;>");
                 Assert.NotNull(message);
-                Assert.Same(message, room.Messages.First());
-                Assert.Equal("Content", message.Content);
+                Assert.Same(message, sut.PublicRoom.Messages.First());
+                Assert.Equal("<!TestContent;>", message.Content);
+                Assert.InRange(message.When, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow);
+            }
+
+            [Fact]
+            public void UserAddNewMessageInJoinedSucceeds()
+            {
+                var sut = new ChatTestEnvironment();
+                sut.PublicRoom.Users.Add(sut.NewUser);
+                sut.NewUser.Rooms.Add(sut.PublicRoom);
+
+                ChatMessage message = sut.ChatService.AddMessage(sut.NewUser.Id, sut.PublicRoom.Name, "<!TestContent;>");
+                Assert.NotNull(message);
+                Assert.Same(message, sut.PublicRoom.Messages.First());
+                Assert.Equal("<!TestContent;>", message.Content);
+                Assert.InRange(message.When, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow);
             }
         }
 

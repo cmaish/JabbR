@@ -83,11 +83,15 @@
   <ItemGroup>
     <Compile Include="ChatFacts.cs" />
     <Compile Include="ChatServiceFacts.cs" />
+    <Compile Include="ChatTestEnvironment.cs" />
+    <Compile Include="GlobalCommandFacts.cs" />
+    <Compile Include="RoomCommandFacts.cs" />
     <Compile Include="CommandManagerFacts.cs" />
     <Compile Include="CryptoHelperFacts.cs" />
     <Compile Include="MentionExtractorFacts.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QueryStringCollectionTests.cs" />
+    <Compile Include="TestExtensionMethods.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\JabbR\JabbR.csproj">
