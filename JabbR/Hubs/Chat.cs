@@ -159,12 +159,6 @@ namespace JabbR
             var userId = Context.User.GetUserId();
 
             ChatUser user = _repository.VerifyUserId(userId);
-
-            if (user.BanStatus != UserBanStatus.NotBanned)
-            {
-                return true;
-            }
-
             ChatRoom room = _repository.VerifyUserRoom(_cache, user, clientMessage.Room);
 
             if (room == null || (room.Private && !user.AllowedRooms.Contains(room)))
@@ -183,9 +177,26 @@ namespace JabbR
 
             // Create a true unique id and save the message to the db
             string id = Guid.NewGuid().ToString("d");
-            ChatMessage chatMessage = _service.AddMessage(user, room, id, clientMessage.Content);
-            _repository.CommitChanges();
 
+            // If the user isn't banned, create a real message, otherwise make a temporary fake one
+            ChatMessage chatMessage = null;
+            if (user.BanStatus == UserBanStatus.NotBanned)
+            {
+                chatMessage = _service.AddMessage(user, room, id, clientMessage.Content);
+                _repository.CommitChanges();
+            }
+            else
+            {
+                chatMessage = new ChatMessage
+                {
+                    Id = id,
+                    User = user,
+                    Content = clientMessage.Content,
+                    When = DateTimeOffset.UtcNow,
+                    Room = room,
+                    HtmlEncoded = false
+                };
+            }
 
             var messageViewModel = new MessageViewModel(chatMessage);
 
@@ -195,24 +206,53 @@ namespace JabbR
                 // send it to everyone. The assumption is that the client has some ui
                 // that it wanted to update immediately showing the message and
                 // then when the actual message is roundtripped it would "solidify it".
-                Clients.Group(room.Name).addMessage(messageViewModel, room.Name);
+                if (user.BanStatus == UserBanStatus.NotBanned)
+                {
+                    Clients.Group(room.Name).addMessage(messageViewModel, room.Name);
+                }
+                else
+                {
+                    foreach (var client in user.ConnectedClients)
+                    {
+                        Clients.Client(client.Id).addMessage(messageViewModel, room.Name);
+                    }
+                }
             }
             else
             {
-                // If the client did set an id then we need to give everyone the real id first
-                Clients.OthersInGroup(room.Name).addMessage(messageViewModel, room.Name);
+                if (user.BanStatus == UserBanStatus.NotBanned)
+                {
+                    // If the client did set an id then we need to give everyone the real id first
+                    Clients.OthersInGroup(room.Name).addMessage(messageViewModel, room.Name);
+                }
+                else
+                {
+                    // If they're banned, just add the message to their clients
+                    foreach (var client in user.ConnectedClients)
+                    {
+                        if (Context.ConnectionId == client.Id)
+                        {
+                            continue;
+                        }
+
+                        Clients.Client(client.Id).addMessage(messageViewModel, room.Name);
+                    }
+                }
 
                 // Now tell the caller to replace the message
                 Clients.Caller.replaceMessage(clientMessage.Id, messageViewModel, room.Name);
             }
 
-            // Add mentions
-            AddMentions(chatMessage);
+            if (user.BanStatus == UserBanStatus.NotBanned)
+            {
+                // Add mentions
+                AddMentions(chatMessage);
+            }
 
             var urls = UrlExtractor.ExtractUrls(chatMessage.Content);
             if (urls.Count > 0)
             {
-                _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id);
+                _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id, user.BanStatus == UserBanStatus.NotBanned);
             }
 
             return true;
@@ -466,7 +506,7 @@ namespace JabbR
                 var urls = UrlExtractor.ExtractUrls(chatMessage.Content);
                 if (urls.Count > 0)
                 {
-                    _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id);
+                    _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id, true);
                 }
             }
         }
