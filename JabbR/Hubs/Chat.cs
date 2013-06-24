@@ -252,7 +252,8 @@ namespace JabbR
             var urls = UrlExtractor.ExtractUrls(chatMessage.Content);
             if (urls.Count > 0)
             {
-                _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id, user.BanStatus == UserBanStatus.NotBanned);
+                bool updateDatabase = user.BanStatus == UserBanStatus.NotBanned;
+                _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id, updateDatabase: updateDatabase);
             }
 
             return true;
@@ -506,7 +507,7 @@ namespace JabbR
                 var urls = UrlExtractor.ExtractUrls(chatMessage.Content);
                 if (urls.Count > 0)
                 {
-                    _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id, true);
+                    _resourceProcessor.ProcessUrls(urls, Clients, room.Name, chatMessage.Id, updateDatabase: true);
                 }
             }
         }

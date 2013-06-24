@@ -119,12 +119,6 @@ namespace JabbR.Infrastructure
 
         private static void AddClaim(FormsResponseSignInContext context, ChatUser user)
         {
-            // Do nothing if the user is banned
-            if (user.BanStatus != UserBanStatus.NotBanned)
-            {
-                return;
-            }
-
             // Add the jabbr id claim
             context.Identity.AddClaim(new Claim(JabbRClaimTypes.Identifier, user.Id));
 
