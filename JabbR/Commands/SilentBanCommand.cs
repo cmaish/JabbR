@@ -4,8 +4,8 @@ using JabbR.Models;
 
 namespace JabbR.Commands
 {
-    [Command("ban", "Ban a user from JabbR!", "user", "admin")]
-    public class BanCommand : AdminCommand
+    [Command("silentban", "Ban a user from JabbR without them knowing.", "user", "admin")]
+    public class SilentBanCommand : AdminCommand
     {
         public override void ExecuteAdminOperation(CommandContext context, CallerContext callerContext, ChatUser callingUser, string[] args)
         {
@@ -18,8 +18,7 @@ namespace JabbR.Commands
 
             ChatUser targetUser = context.Repository.VerifyUser(targetUserName);
 
-            context.Service.BanUser(callingUser, targetUser, false);
-            context.NotificationService.BanUser(targetUser);
+            context.Service.BanUser(callingUser, targetUser, true);
             context.Repository.CommitChanges();
         }
     }

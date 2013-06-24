@@ -863,6 +863,9 @@
     <EmbeddedResource Include="Migrations\201306180311195_ExtendChatUserFlagLength.resx">
       <DependentUpon>201306180311195_ExtendChatUserFlagLength.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201306240509060_EnhanceChatUserBanFlag.resx">
+      <DependentUpon>201306240509060_EnhanceChatUserBanFlag.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="Scripts\jquery-1.9.0.intellisense.js" />
     <Content Include="Scripts\ba-linkify.min.js" />
     <Content Include="Scripts\bootstrap.js" />
@@ -928,6 +931,7 @@
     <Content Include="Views\Administration\index.cshtml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Commands\SilentBanCommand.cs" />
     <Compile Include="Middleware\FixCookieHandler.cs" />
     <Compile Include="App_Start\Startup.DependencyInjection.cs" />
     <Compile Include="Commands\AllowedCommand.cs" />
@@ -990,8 +994,13 @@
     <Compile Include="Migrations\201306180311195_ExtendChatUserFlagLength.Designer.cs">
       <DependentUpon>201306180311195_ExtendChatUserFlagLength.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201306240509060_EnhanceChatUserBanFlag.cs" />
+    <Compile Include="Migrations\201306240509060_EnhanceChatUserBanFlag.Designer.cs">
+      <DependentUpon>201306240509060_EnhanceChatUserBanFlag.cs</DependentUpon>
+    </Compile>
     <Compile Include="Models\Attachment.cs" />
     <Compile Include="Models\ClientNotification.cs" />
+    <Compile Include="Models\UserBanStatus.cs" />
     <Compile Include="Models\Mapping\AttachmentMap.cs" />
     <Compile Include="Models\Mapping\NotificationMap.cs" />
     <Compile Include="Models\MessageType.cs" />

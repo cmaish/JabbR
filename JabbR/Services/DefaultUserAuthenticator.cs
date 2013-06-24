@@ -24,7 +24,7 @@ namespace JabbR.Services
             ChatUser user;
             if (_service.TryAuthenticateUser(username, password, out user))
             {
-                if (user.IsBanned)
+                if (user.BanStatus == UserBanStatus.Banned)
                 {
                     return false;
                 }

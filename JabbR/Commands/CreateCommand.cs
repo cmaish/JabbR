@@ -34,11 +34,14 @@ namespace JabbR.Commands
             }
 
             // Create the room, then join it
-            room = context.Service.AddRoom(callingUser, roomName);
+            if (callingUser.BanStatus == UserBanStatus.NotBanned)
+            {
+                room = context.Service.AddRoom(callingUser, roomName);
 
-            context.Service.JoinRoom(callingUser, room, null);
+                context.Service.JoinRoom(callingUser, room, null);
 
-            context.Repository.CommitChanges();
+                context.Repository.CommitChanges();
+            }
 
             context.NotificationService.JoinRoom(callingUser, room);
         }

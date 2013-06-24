@@ -159,6 +159,12 @@ namespace JabbR
             var userId = Context.User.GetUserId();
 
             ChatUser user = _repository.VerifyUserId(userId);
+
+            if (user.BanStatus != UserBanStatus.NotBanned)
+            {
+                return true;
+            }
+
             ChatRoom room = _repository.VerifyUserRoom(_cache, user, clientMessage.Room);
 
             if (room == null || (room.Private && !user.AllowedRooms.Contains(room)))
@@ -794,29 +800,57 @@ namespace JabbR
             // Create the view model
             var userViewModel = new UserViewModel(user);
 
-            // Tell all users in rooms to change the gravatar
-            foreach (var room in user.Rooms)
+            if (user.BanStatus == UserBanStatus.NotBanned)
             {
-                Clients.Group(room.Name).changeGravatar(userViewModel, room.Name);
+                // Tell all users in rooms to change the gravatar
+                foreach (var room in user.Rooms)
+                {
+                    Clients.Group(room.Name).changeGravatar(userViewModel, room.Name);
+                }
+            }
+            else
+            {
+                // just tell the user that they changed their own gravatar
+                foreach (var room in user.Rooms)
+                {
+                    foreach (var client in user.ConnectedClients)
+                    {
+                        Clients.Client(client.Id).changeGravatar(userViewModel, room.Name);
+                    }
+                }
             }
         }
 
         void INotificationService.OnSelfMessage(ChatRoom room, ChatUser user, string content)
         {
-            Clients.Group(room.Name).sendMeMessage(user.Name, content, room.Name);
+            if (user.BanStatus == UserBanStatus.NotBanned)
+            {
+                Clients.Group(room.Name).sendMeMessage(user.Name, content, room.Name);
+            }
+            else
+            {
+                // send it to just the client
+                foreach (var client in user.ConnectedClients)
+                {
+                    Clients.Client(client.Id).sendMeMessage(user.Name, content, room.Name);
+                }
+            }
         }
 
         void INotificationService.SendPrivateMessage(ChatUser fromUser, ChatUser toUser, string messageText)
         {
-            // Send a message to the sender and the sendee
+            // Send a message to the sender and the sendee (but only if the sender isn't banned)
             foreach (var client in fromUser.ConnectedClients)
             {
                 Clients.Client(client.Id).sendPrivateMessage(fromUser.Name, toUser.Name, messageText);
             }
 
-            foreach (var client in toUser.ConnectedClients)
+            if (fromUser.BanStatus == UserBanStatus.NotBanned)
             {
-                Clients.Client(client.Id).sendPrivateMessage(fromUser.Name, toUser.Name, messageText);
+                foreach (var client in toUser.ConnectedClients)
+                {
+                    Clients.Client(client.Id).sendPrivateMessage(fromUser.Name, toUser.Name, messageText);
+                }
             }
         }
 
@@ -933,10 +967,13 @@ namespace JabbR
 
         void INotificationService.Invite(ChatUser user, ChatUser targetUser, ChatRoom targetRoom)
         {
-            // Send the invite message to the sendee
-            foreach (var client in targetUser.ConnectedClients)
+            if (user.BanStatus == UserBanStatus.NotBanned)
             {
-                Clients.Client(client.Id).sendInvite(user.Name, targetUser.Name, targetRoom.Name);
+                // Send the invite message to the sendee
+                foreach (var client in targetUser.ConnectedClients)
+                {
+                    Clients.Client(client.Id).sendInvite(user.Name, targetUser.Name, targetRoom.Name);
+                }
             }
 
             // Send the invite notification to the sender
@@ -949,9 +986,12 @@ namespace JabbR
         void INotificationService.NugeUser(ChatUser user, ChatUser targetUser)
         {
             // Send a nudge message to the sender and the sendee
-            foreach (var client in targetUser.ConnectedClients)
+            if (user.BanStatus == UserBanStatus.NotBanned)
             {
-                Clients.Client(client.Id).nudge(user.Name, targetUser.Name);
+                foreach (var client in targetUser.ConnectedClients)
+                {
+                    Clients.Client(client.Id).nudge(user.Name, targetUser.Name);
+                }
             }
 
             foreach (var client in user.ConnectedClients)
@@ -962,7 +1002,17 @@ namespace JabbR
 
         void INotificationService.NudgeRoom(ChatRoom room, ChatUser user)
         {
-            Clients.Group(room.Name).nudge(user.Name);
+            if (user.BanStatus == UserBanStatus.NotBanned)
+            {
+                Clients.Group(room.Name).nudge(user.Name);
+            }
+            else
+            {
+                foreach (var client in user.ConnectedClients)
+                {
+                    Clients.Client(client.Id).nudge(user.Name);
+                }
+            }
         }
 
         void INotificationService.LeaveRoom(ChatUser user, ChatRoom room)
@@ -1002,9 +1052,22 @@ namespace JabbR
             var userViewModel = new UserViewModel(user);
 
             // Tell all users in rooms to change the note
-            foreach (var room in user.Rooms)
+            if (user.BanStatus == UserBanStatus.NotBanned)
             {
-                Clients.Group(room.Name).changeNote(userViewModel, room.Name);
+                foreach (var room in user.Rooms)
+                {
+                    Clients.Group(room.Name).changeNote(userViewModel, room.Name);
+                }
+            }
+            else
+            {
+                foreach (var room in user.Rooms)
+                {
+                    foreach (var client in user.ConnectedClients)
+                    {
+                        Clients.Client(client.Id).changeNote(userViewModel, room.Name);
+                    }
+                }
             }
         }
 
@@ -1022,9 +1085,22 @@ namespace JabbR
             }
 
             // Tell all users in rooms to change the flag
-            foreach (var room in user.Rooms)
+            if (user.BanStatus == UserBanStatus.NotBanned)
             {
-                Clients.Group(room.Name).changeFlag(userViewModel, room.Name);
+                foreach (var room in user.Rooms)
+                {
+                    Clients.Group(room.Name).changeFlag(userViewModel, room.Name);
+                }
+            }
+            else
+            {
+                foreach (var room in user.Rooms)
+                {
+                    foreach (var client in user.ConnectedClients)
+                    {
+                        Clients.Client(client.Id).changeFlag(userViewModel, room.Name);
+                    }
+                }
             }
         }
 

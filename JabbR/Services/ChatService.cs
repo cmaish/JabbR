@@ -815,7 +815,7 @@ namespace JabbR.Services
             _repository.CommitChanges();
         }
 
-        public void BanUser(ChatUser admin, ChatUser targetUser)
+        public void BanUser(ChatUser admin, ChatUser targetUser, bool silent)
         {
             EnsureAdmin(admin);
 
@@ -824,7 +824,7 @@ namespace JabbR.Services
                 throw new InvalidOperationException("You cannot ban another admin.");
             }
 
-            targetUser.IsBanned = true;
+            targetUser.BanStatus = silent ? UserBanStatus.SilentlyBanned : UserBanStatus.Banned;
 
             _repository.CommitChanges();
         }
