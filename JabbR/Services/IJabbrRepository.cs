@@ -14,8 +14,8 @@ namespace JabbR.Services
         IQueryable<ChatUser> GetOnlineUsers();
 
         IQueryable<ChatUser> SearchUsers(string name);
-        IQueryable<ChatMessage> GetMessagesByRoom(ChatRoom room);
-        IQueryable<ChatMessage> GetPreviousMessages(string messageId);
+        IQueryable<ChatMessage> GetMessagesByRoom(ChatRoom room, bool includeBannedUsers);
+        IQueryable<ChatMessage> GetPreviousMessages(string messageId, bool includeBannedUsers);
         IQueryable<ChatRoom> GetAllowedRooms(ChatUser user);
         IQueryable<Notification> GetNotificationsByUser(ChatUser user);
         ChatMessage GetMessageById(string id);

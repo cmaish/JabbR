@@ -829,6 +829,15 @@ namespace JabbR.Services
             _repository.CommitChanges();
         }
 
+        public void UnbanUser(ChatUser admin, ChatUser targetUser)
+        {
+            EnsureAdmin(admin);
+
+            targetUser.BanStatus = UserBanStatus.NotBanned;
+            
+            _repository.CommitChanges();
+        }
+
         internal static void ValidateNote(string note, string noteTypeName = "note", int? maxLength = null)
         {
             var lengthToValidateFor = (maxLength ?? NoteMaximumLength);

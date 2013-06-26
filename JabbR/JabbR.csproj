@@ -931,6 +931,7 @@
     <Content Include="Views\Administration\index.cshtml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Commands\UnbanCommand.cs" />
     <Compile Include="Commands\SilentBanCommand.cs" />
     <Compile Include="Middleware\FixCookieHandler.cs" />
     <Compile Include="App_Start\Startup.DependencyInjection.cs" />

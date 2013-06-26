@@ -145,9 +145,9 @@ namespace JabbR.Services
             return _notifications.Where(n => n.UserKey == user.Key).AsQueryable();
         }
 
-        public IQueryable<ChatMessage> GetMessagesByRoom(ChatRoom room)
+        public IQueryable<ChatMessage> GetMessagesByRoom(ChatRoom room, bool includeBannedUsers)
         {
-            return room.Messages.AsQueryable();
+            return room.Messages.Where(e => (e.User.BanStatus == UserBanStatus.NotBanned || includeBannedUsers)).AsQueryable();
         }
 
         public IQueryable<ChatUser> GetOnlineUsers(ChatRoom room)
@@ -197,7 +197,7 @@ namespace JabbR.Services
             return _users.SelectMany(u => u.ConnectedClients).FirstOrDefault(c => c.Id == clientId);
         }
 
-        public IQueryable<ChatMessage> GetPreviousMessages(string messageId)
+        public IQueryable<ChatMessage> GetPreviousMessages(string messageId, bool includeBannedUsers)
         {
             // Ineffcient since we don't have a messages collection
 
@@ -205,7 +205,7 @@ namespace JabbR.Services
                     let message = r.Messages.FirstOrDefault(m => m.Id == messageId)
                     where message != null
                     from m in r.Messages
-                    where m.When < message.When
+                    where m.When < message.When && (message.User.BanStatus == UserBanStatus.NotBanned || includeBannedUsers)
                     select m).AsQueryable();
         }
 

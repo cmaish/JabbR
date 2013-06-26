@@ -178,25 +178,8 @@ namespace JabbR
             // Create a true unique id and save the message to the db
             string id = Guid.NewGuid().ToString("d");
 
-            // If the user isn't banned, create a real message, otherwise make a temporary fake one
-            ChatMessage chatMessage = null;
-            if (user.BanStatus == UserBanStatus.NotBanned)
-            {
-                chatMessage = _service.AddMessage(user, room, id, clientMessage.Content);
-                _repository.CommitChanges();
-            }
-            else
-            {
-                chatMessage = new ChatMessage
-                {
-                    Id = id,
-                    User = user,
-                    Content = clientMessage.Content,
-                    When = DateTimeOffset.UtcNow,
-                    Room = room,
-                    HtmlEncoded = false
-                };
-            }
+            ChatMessage chatMessage = _service.AddMessage(user, room, id, clientMessage.Content);
+            _repository.CommitChanges();
 
             var messageViewModel = new MessageViewModel(chatMessage);
 
@@ -413,7 +396,11 @@ namespace JabbR
 
         public IEnumerable<MessageViewModel> GetPreviousMessages(string messageId)
         {
-            var previousMessages = (from m in _repository.GetPreviousMessages(messageId)
+            string userId = Context.User.GetUserId();
+            ChatUser user = _repository.VerifyUserId(userId);
+            bool includeBannedUsers = user.BanStatus != UserBanStatus.NotBanned;
+
+            var previousMessages = (from m in _repository.GetPreviousMessages(messageId, includeBannedUsers)
                                     orderby m.When descending
                                     select m).Take(100);
 
@@ -432,6 +419,7 @@ namespace JabbR
 
             string userId = Context.User.GetUserId();
             ChatUser user = _repository.VerifyUserId(userId);
+            bool includeBannedUsers = user.BanStatus != UserBanStatus.NotBanned;
 
             ChatRoom room = _repository.GetRoomByName(roomName);
 
@@ -440,7 +428,7 @@ namespace JabbR
                 return null;
             }
 
-            var recentMessages = (from m in _repository.GetMessagesByRoom(room)
+            var recentMessages = (from m in _repository.GetMessagesByRoom(room, includeBannedUsers)
                                   orderby m.When descending
                                   select m).Take(50).ToList();
 
@@ -1264,23 +1252,39 @@ namespace JabbR
             return value != null ? Uri.UnescapeDataString(value) : null;
         }
 
-        void INotificationService.BanUser(ChatUser targetUser)
+        void INotificationService.BanUser(ChatUser targetUser, bool silent)
         {
-            var rooms = targetUser.Rooms.Select(x => x.Name);
-
-            foreach (var room in rooms)
+            // if it's a nonsilent ban, kick them from their rooms then log out their clients
+            if (!silent)
             {
+                var rooms = targetUser.Rooms.Select(x => x.Name);
+
+                foreach (var room in rooms)
+                {
+                    foreach (var client in targetUser.ConnectedClients)
+                    {
+                        // Kick the user from this room
+                        Clients.Client(client.Id).kick(room);
+
+                        // Remove the user from this the room group so he doesn't get the leave message
+                        Groups.Remove(client.Id, room);
+                    }
+                }
+
                 foreach (var client in targetUser.ConnectedClients)
                 {
-                    // Kick the user from this room
-                    Clients.Client(client.Id).kick(room);
-
-                    // Remove the user from this the room group so he doesn't get the leave message
-                    Groups.Remove(client.Id, room);
+                    Clients.Client(client.Id).logOut(rooms);
                 }
             }
 
-            Clients.Client(targetUser.ConnectedClients.First().Id).logOut(rooms);
+            // notify the caller via a notification
+            Clients.Caller.userBanned(targetUser.Name, silent);
+        }
+        
+        void INotificationService.UnbanUser(ChatUser targetUser)
+        {
+            // notify the user via a notification that they've been unbanned
+            Clients.Caller.userUnbanned(targetUser.Name);
         }
 
         protected override void Dispose(bool disposing)

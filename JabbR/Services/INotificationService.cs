@@ -38,7 +38,8 @@ namespace JabbR.Services
         void KickUser(ChatUser targetUser, ChatRoom targetRoom);
         void AllowUser(ChatUser targetUser, ChatRoom targetRoom);
         void UnallowUser(ChatUser targetUser, ChatRoom targetRoom);
-        void BanUser(ChatUser targetUser);
+        void BanUser(ChatUser targetUser, bool silent);
+        void UnbanUser(ChatUser targetUser);
 
         void OnUserCreated(ChatUser user);
         void OnUserNameChanged(ChatUser user, string oldUserName, string newUserName);

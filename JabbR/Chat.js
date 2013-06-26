@@ -796,6 +796,18 @@
         ui.addMessage('You are no longer an admin', 'notification', this.state.activeRoom);
     };
 
+    chat.client.userUnbanned = function (user) {
+        ui.addMessage(user + ' has been unbanned', 'notification', this.state.activeRoom);
+    };
+    
+    chat.client.userBanned = function (user, silent) {
+        if (silent) {
+            ui.addMessage(user + ' has been silently banned', 'notification', this.state.activeRoom);
+        } else {
+            ui.addMessage(user + ' has been banned', 'notification', this.state.activeRoom);
+        }
+    };
+
     chat.client.broadcastMessage = function (message, room) {
         ui.addMessage('ADMIN: ' + message, 'broadcast', room);
     };
