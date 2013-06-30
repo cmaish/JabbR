@@ -20,7 +20,7 @@ namespace JabbR.Commands
 
             if (targetUser.BanStatus == UserBanStatus.Banned)
             {
-                throw new InvalidOperationException(string.Format("{0} is already banned.", targetUser.Name));
+                throw new InvalidOperationException(String.Format("{0} is already banned.", targetUser.Name));
             }
 
             context.Service.BanUser(callingUser, targetUser, silent: false);

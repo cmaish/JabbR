@@ -20,7 +20,7 @@ namespace JabbR.Commands
 
             if (targetUser.BanStatus == UserBanStatus.NotBanned)
             {
-                throw new InvalidOperationException(string.Format("{0} is not banned.", targetUser.Name));
+                throw new InvalidOperationException(String.Format("{0} is not banned.", targetUser.Name));
             }
 
             context.Service.UnbanUser(callingUser, targetUser);

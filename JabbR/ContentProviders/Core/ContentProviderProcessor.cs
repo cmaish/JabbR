@@ -21,8 +21,7 @@ namespace JabbR.ContentProviders.Core
         public void ProcessUrls(IEnumerable<string> links,
                                 IHubConnectionContext clients,
                                 string roomName,
-                                string messageId,
-                                bool updateDatabase)
+                                string messageId)
         {
 
             var resourceProcessor = _kernel.Get<IResourceProcessor>();
@@ -45,18 +44,14 @@ namespace JabbR.ContentProviders.Core
                     }
 
                     // Update the message with the content
-                    if (updateDatabase)
+                    using (var repository = _kernel.Get<IJabbrRepository>())
                     {
-                        // REVIEW: Does it even make sense to get multiple results?
-                        using (var repository = _kernel.Get<IJabbrRepository>())
-                        {
-                            var message = repository.GetMessageById(messageId);
+                        var message = repository.GetMessageById(messageId);
 
-                            // Should this be an append?
-                            message.HtmlContent = task.Result.Content;
+                        // Should this be an append?
+                        message.HtmlContent = task.Result.Content;
 
-                            repository.CommitChanges();
-                        }
+                        repository.CommitChanges();
                     }
 
                     // Notify the room

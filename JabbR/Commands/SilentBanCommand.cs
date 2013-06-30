@@ -20,7 +20,7 @@ namespace JabbR.Commands
 
             if (targetUser.BanStatus == UserBanStatus.SilentlyBanned)
             {
-                throw new InvalidOperationException(string.Format("{0} is already silently banned.", targetUser.Name));
+                throw new InvalidOperationException(String.Format("{0} is already silently banned.", targetUser.Name));
             }
 
             context.Service.BanUser(callingUser, targetUser, silent: true);
