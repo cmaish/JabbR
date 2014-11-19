@@ -5,7 +5,7 @@ using JabbR.Services;
 
 namespace JabbR.Commands
 {
-    [Command("topic", "Set the room topic. Exclude [topic] to clear the room's topic.", "[topic]", "room")]
+    [Command("topic", "Topic_CommandInfo", "[topic]", "room")]
     public class TopicCommand : UserCommand
     {
         public override void Execute(CommandContext context, CallerContext callerContext, ChatUser callingUser, string[] args)
@@ -16,6 +16,8 @@ namespace JabbR.Commands
             newTopic = String.IsNullOrWhiteSpace(newTopic) ? null : newTopic;
 
             ChatRoom room = context.Repository.VerifyUserRoom(context.Cache, callingUser, callerContext.RoomName);
+
+            room.EnsureOpen();
 
             context.Service.ChangeTopic(callingUser, room, newTopic);
 

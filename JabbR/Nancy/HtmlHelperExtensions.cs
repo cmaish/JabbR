@@ -19,7 +19,9 @@ namespace JabbR
             
             var checkBoxBuilder = new StringBuilder();
 
-            checkBoxBuilder.Append(@"<input data-name=""");
+            checkBoxBuilder.Append(@"<input id=""");
+            checkBoxBuilder.Append(AntiXSS.Encoder.HtmlAttributeEncode(Name));
+            checkBoxBuilder.Append(@""" data-name=""");
             checkBoxBuilder.Append(AntiXSS.Encoder.HtmlAttributeEncode(Name));
             checkBoxBuilder.Append(@""" type=""checkbox""");
             if (value)
@@ -136,9 +138,21 @@ namespace JabbR
         public static IHtmlString DisplayNoneIf<TModel>(this HtmlHelpers<TModel> htmlHelper, Expression<Func<TModel, bool>> expression)
         {
             if (expression.Compile()(htmlHelper.Model))
+            {
                 return new NonEncodedHtmlString(@" style=""display:none;"" ");
+            }
 
             return NonEncodedHtmlString.Empty;
+        }
+
+        public static string RequestQuery<TModel>(this HtmlHelpers<TModel> htmlHelper)
+        {
+            if (htmlHelper.RenderContext.Context.Request.Url != null && !String.IsNullOrEmpty(htmlHelper.RenderContext.Context.Request.Url.Query))
+            {
+                return "?" + htmlHelper.RenderContext.Context.Request.Url.Query;
+            }
+
+            return String.Empty;
         }
     }
 }

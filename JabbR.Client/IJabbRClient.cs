@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using JabbR.Client.Models;
 using JabbR.Models;
@@ -22,12 +23,12 @@ namespace JabbR.Client
         event Action<string, User, string> UsernameChanged;
         event Action<User, string> NoteChanged;
         event Action<User, string> FlagChanged;
-        event Action<Room> TopicChanged;
+        event Action<string, string, string> TopicChanged;
         event Action<User, string> OwnerAdded;
         event Action<User, string> OwnerRemoved;
         event Action<string, string, string> AddMessageContent;
         event Action<Room> JoinedRoom;
-        event Action<Room, int> RoomCountChanged;
+        event Action<Room> RoomChanged;
         event Action<User> UserActivityChanged;
         event Action<IEnumerable<User>> UsersInactive;
         event Action Disconnected;
@@ -36,12 +37,15 @@ namespace JabbR.Client
         string SourceUrl { get; }
         bool AutoReconnect { get; set; }
         ICredentials Credentials { get; set; }
+        HubConnection Connection { get; }
 
         Task<LogOnInfo> Connect(string name, string password);
         Task<User> GetUserInfo();
         Task LogOut();
         Task<bool> Send(string message, string roomName);
         Task<bool> Send(ClientMessage message);
+        Task Send(ClientMessage message, CancellationToken cancel);
+        Task Send(ClientMessage message, TimeSpan timeout);
         Task CreateRoom(string roomName);
         Task JoinRoom(string roomName);
         Task LeaveRoom(string roomName);

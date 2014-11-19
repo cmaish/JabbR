@@ -1,9 +1,10 @@
 ﻿using System;
 using JabbR.Models;
+using Microsoft.AspNet.SignalR;
 
 namespace JabbR.Commands
 {
-    [Command("lock", "Make a room private. Only works if you're the creator of that room.", "[room]", "room")]
+    [Command("lock", "Lock_CommandInfo", "[room]", "room", "Lock_ConfirmMessage")]
     public class LockCommand : UserCommand
     {
         public override void Execute(CommandContext context, CallerContext callerContext, ChatUser callingUser, string[] args)
@@ -12,10 +13,10 @@ namespace JabbR.Commands
 
             if (String.IsNullOrEmpty(roomName))
             {
-                throw new InvalidOperationException("Which room do you want to lock?");
+                throw new HubException(LanguageResources.Lock_RoomRequired);
             }
 
-            ChatRoom room = context.Repository.VerifyRoom(roomName);
+            ChatRoom room = context.Repository.VerifyRoom(roomName, mustBeOpen: false);
 
             context.Service.LockRoom(callingUser, room);
 

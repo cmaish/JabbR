@@ -11,12 +11,12 @@ namespace JabbR.Services
         private static readonly string _jabbrSettingsCacheKey = "jabbr.settings";
 
         private readonly ICache _cache;
-        private readonly JabbrContext _context;
+        private readonly IJabbrRepository _repository;
 
-        public SettingsManager(ICache cache, JabbrContext context)
+        public SettingsManager(ICache cache, IJabbrRepository repository)
         {
             _cache = cache;
-            _context = context;
+            _repository = repository;
         }
 
         public ApplicationSettings Load()
@@ -25,7 +25,7 @@ namespace JabbR.Services
 
             if (settings == null)
             {
-                Settings dbSettings = _context.Settings.FirstOrDefault();
+                Settings dbSettings = _repository.Settings.FirstOrDefault();
 
                 if (dbSettings == null)
                 {
@@ -36,14 +36,19 @@ namespace JabbR.Services
                         RawSettings = JsonConvert.SerializeObject(settings)
                     };
 
-                    _context.Settings.Add(dbSettings);
-                    _context.SaveChanges();
+                    _repository.Add(dbSettings);
                 }
                 else
                 {
                     try
                     {
                         settings = JsonConvert.DeserializeObject<ApplicationSettings>(dbSettings.RawSettings);
+                        if (settings.ContentProviders == null)
+                        {
+                            // this will apply the default for the case where ApplicationSettings exists from prior to
+                            // when this property was introduced.
+                            settings.ContentProviders = ContentProviderSetting.GetDefaultContentProviders();
+                        }
                     }
                     catch
                     {
@@ -53,7 +58,7 @@ namespace JabbR.Services
                         settings = ApplicationSettings.GetDefaultSettings();
 
                         dbSettings.RawSettings = JsonConvert.SerializeObject(settings);
-                        _context.SaveChanges();
+                        _repository.CommitChanges();
                     }
                 }
 
@@ -69,7 +74,7 @@ namespace JabbR.Services
             string rawSettings = JsonConvert.SerializeObject(settings);
 
             // Update the database
-            Settings dbSettings = _context.Settings.FirstOrDefault();
+            Settings dbSettings = _repository.Settings.FirstOrDefault();
 
             if (dbSettings == null)
             {
@@ -78,14 +83,14 @@ namespace JabbR.Services
                     RawSettings = rawSettings
                 };
 
-                _context.Settings.Add(dbSettings);
+                _repository.Add(dbSettings);
             }
             else
             {
                 dbSettings.RawSettings = rawSettings;
             }
 
-            _context.SaveChanges();
+            _repository.CommitChanges();
 
             // Clear the cache
             _cache.Remove(_jabbrSettingsCacheKey);

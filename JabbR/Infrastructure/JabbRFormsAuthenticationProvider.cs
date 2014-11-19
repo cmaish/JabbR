@@ -5,15 +5,13 @@ using System.Threading.Tasks;
 using JabbR.Models;
 using JabbR.Services;
 using Microsoft.Owin.Security;
-using Microsoft.Owin.Security.Forms;
+using Microsoft.Owin.Security.Cookies;
 using Newtonsoft.Json;
-using Owin.Types;
-using Owin.Types.Extensions;
-using Owin.Types.Helpers;
+using Microsoft.Owin;
 
 namespace JabbR.Infrastructure
 {
-    public class JabbRFormsAuthenticationProvider : IFormsAuthenticationProvider
+    public class JabbRFormsAuthenticationProvider : ICookieAuthenticationProvider
     {
         private readonly IJabbrRepository _repository;
         private readonly IMembershipService _membershipService;
@@ -24,24 +22,19 @@ namespace JabbR.Infrastructure
             _membershipService = membershipService;
         }
 
-        public Task ValidateIdentity(FormsValidateIdentityContext context)
+        public Task ValidateIdentity(CookieValidateIdentityContext context)
         {
             return TaskAsyncHelper.Empty;
         }
 
-        public Task ValidateLogin(FormsValidateLoginContext context)
-        {
-            return TaskAsyncHelper.Empty;
-        }
-
-        public void ResponseSignIn(FormsResponseSignInContext context)
+        public void ResponseSignIn(CookieResponseSignInContext context)
         {
             var authResult = new AuthenticationResult
             {
                 Success = true
             };
 
-            ChatUser loggedInUser = GetLoggedInUser(context.Environment);
+            ChatUser loggedInUser = GetLoggedInUser(context);
 
             var principal = new ClaimsPrincipal(context.Identity);
 
@@ -61,7 +54,7 @@ namespace JabbR.Infrastructure
                 if (loggedInUser != null && user != loggedInUser)
                 {
                     // Set an error message
-                    authResult.Message = String.Format("This {0} account has already been linked to another user.", authResult.ProviderName);
+                    authResult.Message = String.Format(LanguageResources.Account_AccountAlreadyLinked, authResult.ProviderName);
                     authResult.Success = false;
 
                     // Keep the old user logged in
@@ -74,7 +67,7 @@ namespace JabbR.Infrastructure
                 }
 
             }
-            else if (principal.HasRequiredClaims())
+            else if (principal.HasAllClaims())
             {
                 ChatUser targetUser = null;
 
@@ -93,7 +86,7 @@ namespace JabbR.Infrastructure
 
                     _repository.CommitChanges();
 
-                    authResult.Message = String.Format("Successfully linked {0} account.", authResult.ProviderName);
+                    authResult.Message = String.Format(LanguageResources.Account_AccountLinkedSuccess, authResult.ProviderName);
 
                     targetUser = loggedInUser;
                 }
@@ -106,19 +99,24 @@ namespace JabbR.Infrastructure
                 context.Identity.AddClaim(new Claim(JabbRClaimTypes.PartialIdentity, "true"));
             }
 
-            var response = new OwinResponse(context.Environment);
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true
             };
 
-            response.AddCookie(Constants.AuthResultCookie,
-                               JsonConvert.SerializeObject(authResult),
-                               cookieOptions);
+            context.Response.Cookies.Append(Constants.AuthResultCookie,
+                                       JsonConvert.SerializeObject(authResult),
+                                       cookieOptions);
         }
 
-        private static void AddClaim(FormsResponseSignInContext context, ChatUser user)
+        private static void AddClaim(CookieResponseSignInContext context, ChatUser user)
         {
+            // Do nothing if the user is banned
+            if (user.IsBanned)
+            {
+                return;
+            }
+
             // Add the jabbr id claim
             context.Identity.AddClaim(new Claim(JabbRClaimTypes.Identifier, user.Id));
 
@@ -131,21 +129,19 @@ namespace JabbR.Infrastructure
             EnsurePersistentCookie(context);
         }
 
-        private static void EnsurePersistentCookie(FormsResponseSignInContext context)
+        private static void EnsurePersistentCookie(CookieResponseSignInContext context)
         {
-            if (context.Extra == null)
+            if (context.Properties == null)
             {
-                context.Extra = new AuthenticationExtra();
+                context.Properties = new AuthenticationProperties();
             }
 
-            context.Extra.IsPersistent = true;
+            context.Properties.IsPersistent = true;
         }
 
-        private ChatUser GetLoggedInUser(IDictionary<string, object> env)
+        private ChatUser GetLoggedInUser(CookieResponseSignInContext context)
         {
-            var request = new OwinRequest(env);
-
-            var principal = request.User as ClaimsPrincipal;
+            var principal = context.Request.User as ClaimsPrincipal;
 
             if (principal != null)
             {
@@ -153,6 +149,11 @@ namespace JabbR.Infrastructure
             }
 
             return null;
+        }
+
+        public void ApplyRedirect(CookieApplyRedirectContext context)
+        {
+            context.Response.Redirect(context.RedirectUri);
         }
     }
 }

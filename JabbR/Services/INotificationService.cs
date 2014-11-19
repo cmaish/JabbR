@@ -20,14 +20,14 @@ namespace JabbR.Services
 
         void Invite(ChatUser user, ChatUser targetUser, ChatRoom targetRoom);
         void NudgeRoom(ChatRoom room, ChatUser user);
-        void NugeUser(ChatUser user, ChatUser targetUser);
+        void NudgeUser(ChatUser user, ChatUser targetUser);
 
-        void ChangePassword();
-        void SetPassword();
+        void ChangeAfk(ChatUser user);
         void ChangeNote(ChatUser user);
         void ChangeFlag(ChatUser user);
         void ChangeTopic(ChatUser user, ChatRoom room);
         void ChangeWelcome(ChatUser user, ChatRoom room);
+        void GenerateMeme(ChatUser user, ChatRoom room, string message);
 
         void PostNotification(ChatRoom room, ChatUser user, string message);
         void SendPrivateMessage(ChatUser user, ChatUser targetUser, string messageText);
@@ -39,6 +39,9 @@ namespace JabbR.Services
         void AllowUser(ChatUser targetUser, ChatRoom targetRoom);
         void UnallowUser(ChatUser targetUser, ChatRoom targetRoom);
         void BanUser(ChatUser targetUser);
+        void UnbanUser(ChatUser targetUser);
+        void CheckBanned(ChatUser targetUser);
+        void CheckBanned();
 
         void OnUserCreated(ChatUser user);
         void OnUserNameChanged(ChatUser user, string oldUserName, string newUserName);

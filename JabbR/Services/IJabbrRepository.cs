@@ -1,5 +1,5 @@
-﻿using System.Linq;
-using System;
+﻿using System;
+using System.Linq;
 using JabbR.Models;
 
 namespace JabbR.Services
@@ -9,6 +9,7 @@ namespace JabbR.Services
         IQueryable<ChatRoom> Rooms { get; }
         IQueryable<ChatUser> Users { get; }
         IQueryable<ChatClient> Clients { get; }
+        IQueryable<Settings> Settings { get; }
 
         IQueryable<ChatUser> GetOnlineUsers(ChatRoom room);
         IQueryable<ChatUser> GetOnlineUsers();
@@ -27,6 +28,7 @@ namespace JabbR.Services
         ChatUser GetUserByClientId(string clientId);
         ChatUser GetUserByLegacyIdentity(string userIdentity);
         ChatUser GetUserByIdentity(string providerName, string userIdentity);
+        ChatUser GetUserByRequestResetPasswordId(string userName, string requestResetPasswordId);
         Notification GetNotificationById(int notificationId);
 
         ChatClient GetClientById(string clientId, bool includeUser = false);
@@ -40,6 +42,7 @@ namespace JabbR.Services
         void Add(ChatUser user);
         void Add(ChatUserIdentity identity);
         void Add(Attachment attachment);
+        void Add(Settings settings);
 
         void Remove(ChatClient client);
         void Remove(ChatRoom room);

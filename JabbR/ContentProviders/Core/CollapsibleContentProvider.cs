@@ -14,13 +14,10 @@ namespace JabbR.ContentProviders.Core
         {
             return GetCollapsibleContent(request).Then(result =>
             {
-                if (IsCollapsible && result != null)
+                if (GetIsCollapsible(request.RequestUri) && result != null)
                 {
-                    result.Content = String.Format(CultureInfo.InvariantCulture,
-                                                      ContentFormat,
-                                                      String.Empty,
-                                                      Encoder.HtmlEncode(result.Title),
-                                                      result.Content);
+                    string contentTitle = String.Format(LanguageResources.Content_HeaderAndToggle, Encoder.HtmlEncode(result.Title));
+                    result.Content = String.Format(ContentFormat, contentTitle, result.Content);
                 }
 
                 return result;
@@ -36,9 +33,20 @@ namespace JabbR.ContentProviders.Core
             }
         }
 
+        protected virtual Regex GetParameterExtractionRegex(Uri responseUri)
+        {
+            return ParameterExtractionRegex;
+        }
+
         protected virtual IList<string> ExtractParameters(Uri responseUri)
         {
-            return ParameterExtractionRegex.Match(responseUri.AbsoluteUri)
+            var parameterExtractionRegex = GetParameterExtractionRegex(responseUri);
+            if (parameterExtractionRegex == null)
+            {
+                return null;
+            }
+
+            return parameterExtractionRegex.Match(responseUri.AbsoluteUri)
                                 .Groups
                                 .Cast<Group>()
                                 .Skip(1)
@@ -53,8 +61,13 @@ namespace JabbR.ContentProviders.Core
             return false;
         }
 
+        protected virtual bool GetIsCollapsible(Uri responseUri)
+        {
+            return IsCollapsible;
+        }
+
         protected virtual bool IsCollapsible { get { return true; } }
 
-        private const string ContentFormat = @"<div class=""collapsible_content"">{0}<h3 class=""collapsible_title"">{1} (click to show/hide)</h3><div class=""collapsible_box"">{2}</div></div>";
+        private const string ContentFormat = @"<div class=""collapsible_content""><h3 class=""collapsible_title"">{0}</h3><div class=""collapsible_box"">{1}</div></div>";
     }
 }

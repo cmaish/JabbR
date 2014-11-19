@@ -8,30 +8,32 @@ using JabbR.Client.Models;
 using JabbR.Models;
 using Microsoft.AspNet.SignalR.Client;
 using Microsoft.AspNet.SignalR.Client.Http;
-using Microsoft.AspNet.SignalR.Client.Hubs;
 using Microsoft.AspNet.SignalR.Client.Transports;
+using Newtonsoft.Json.Linq;
 
 namespace JabbR.Client
 {
     public class JabbRClient : IJabbRClient
     {
-        private readonly IAuthenticationProvider _authenticationProvider;
+        private readonly IAuthenticationProvider _defaultAuthenticationProvider;
         private readonly Func<IClientTransport> _transportFactory;
 
         private IHubProxy _chat;
         private HubConnection _connection;
-        private int _initialized;
+        private IAuthenticationProvider _authenticationProvider;
 
-        public JabbRClient(string url)
-            : this(url, authenticationProvider: null, transportFactory: () => new AutoTransport(new DefaultHttpClient()))
-        { }
+        public JabbRClient(string url) :
+            this(url, transportFactory: () => new AutoTransport(new DefaultHttpClient()))
+        {
+        }
 
-        public JabbRClient(string url, IAuthenticationProvider authenticationProvider, Func<IClientTransport> transportFactory)
+        public JabbRClient(string url, Func<IClientTransport> transportFactory)
         {
             SourceUrl = url;
-            _authenticationProvider = authenticationProvider ?? new DefaultAuthenticationProvider(url);
             _transportFactory = transportFactory;
             TraceLevel = TraceLevels.All;
+
+            _defaultAuthenticationProvider = new DefaultAuthenticationProvider(url);
         }
 
         public event Action<Message, string> MessageReceived;
@@ -46,14 +48,14 @@ namespace JabbR.Client
         public event Action<string, User, string> UsernameChanged;
         public event Action<User, string> NoteChanged;
         public event Action<User, string> FlagChanged;
-        public event Action<Room> TopicChanged;
+        public event Action<string, string, string> TopicChanged;
         public event Action<User, string> OwnerAdded;
         public event Action<User, string> OwnerRemoved;
         public event Action<string, string, string> AddMessageContent;
         public event Action<Room> JoinedRoom;
 
         // Global
-        public event Action<Room, int> RoomCountChanged;
+        public event Action<Room> RoomChanged;
         public event Action<User> UserActivityChanged;
         public event Action<IEnumerable<User>> UsersInactive;
 
@@ -61,6 +63,18 @@ namespace JabbR.Client
         public bool AutoReconnect { get; set; }
         public TextWriter TraceWriter { get; set; }
         public TraceLevels TraceLevel { get; set; }
+
+        public IAuthenticationProvider AuthenticationProvider
+        {
+            get
+            {
+                return _authenticationProvider ?? _defaultAuthenticationProvider;
+            }
+            set
+            {
+                _authenticationProvider = value;
+            }
+        }
 
         public HubConnection Connection
         {
@@ -106,52 +120,38 @@ namespace JabbR.Client
             }
         }
 
-        public Task<LogOnInfo> Connect(string name, string password)
+        public async Task<LogOnInfo> Connect(string name, string password)
         {
-            var taskCompletionSource = new TaskCompletionSource<LogOnInfo>();
+            _connection = await AuthenticationProvider.Connect(name, password);
 
-            _authenticationProvider.Connect(name, password)
-                .Then(connection =>
-                {
-                    _connection = connection;
+            if (TraceWriter != null)
+            {
+                _connection.TraceWriter = TraceWriter;
+            }
 
-                    if (TraceWriter != null)
-                    {
-                        _connection.TraceWriter = TraceWriter;
-                    }
+            _connection.TraceLevel = TraceLevel;
 
-                    _connection.TraceLevel = TraceLevel;
+            _chat = _connection.CreateHubProxy("chat");
 
-                    _chat = _connection.CreateHubProxy("chat");
+            SubscribeToEvents();
 
-                    SubscribeToEvents();
+            await _connection.Start(_transportFactory());
 
-                    return _connection.Start(_transportFactory());
-                })
-                .Then(tcs => LogOn(tcs), taskCompletionSource)
-                .Catch(ex => taskCompletionSource.TrySetException(ex));
-
-            return taskCompletionSource.Task;
+            return await LogOn();
         }
 
-        private void LogOn(TaskCompletionSource<LogOnInfo> tcs)
+        private async Task<LogOnInfo> LogOn()
         {
+            var tcs = new TaskCompletionSource<LogOnInfo>();
+
             IDisposable logOn = null;
 
-            Action<LogOnInfo> callback = logOnInfo =>
-            {
-                if (logOn != null)
-                {
-                    logOn.Dispose();
-                }
-
-                tcs.TrySetResult(logOnInfo);
-            };
-
             // Wait for the logOn callback to get triggered
-            logOn = _chat.On<IEnumerable<Room>>(ClientEvents.LogOn, rooms =>
+            logOn = _chat.On<IEnumerable<Room>, JArray>(ClientEvents.LogOn, (rooms, privateRooms) =>
             {
-                callback(new LogOnInfo
+                logOn.Dispose();
+
+                tcs.TrySetResult(new LogOnInfo
                 {
                     Rooms = rooms,
                     UserId = (string)_chat["id"]
@@ -159,18 +159,9 @@ namespace JabbR.Client
             });
 
             // Join JabbR
-            _chat.Invoke("Join").ContinueWith(task =>
-            {
-                if (task.IsFaulted)
-                {
-                    tcs.TrySetUnwrappedException(task.Exception);
-                }
-                else if (task.IsCanceled)
-                {
-                    tcs.TrySetCanceled();
-                }
-            },
-            TaskContinuationOptions.NotOnRanToCompletion);
+            await _chat.Invoke("Join");
+
+            return await tcs.Task;
         }
 
         public Task<User> GetUserInfo()
@@ -193,6 +184,41 @@ namespace JabbR.Client
             return _chat.Invoke<bool>("Send", message);
         }
 
+        public async Task Send(ClientMessage message, TimeSpan timeout)
+        {
+            using (var cts = new CancellationTokenSource(timeout))
+            {
+                await Send(message, cts.Token);
+            }
+        }
+
+        public async Task Send(ClientMessage message, CancellationToken cancel)
+        {
+            var tcs = new TaskCompletionSource<object>();
+            IDisposable subscription = null;
+
+            subscription = _chat.On<string, Message, string>(ClientEvents.ReplaceMessage, (id, _, __) =>
+            {
+                subscription.Dispose();
+
+                if (id == message.Id)
+                {
+                    tcs.TrySetResult(null);
+                }
+            });
+
+            IDisposable registration = cancel.Register(() =>
+            {
+                subscription.Dispose();
+                tcs.TrySetCanceled();
+            });
+
+            await _chat.Invoke<bool>("Send", message);
+            await tcs.Task;
+
+            registration.Dispose();
+        }
+
         public Task PostNotification(ClientNotification notification, bool executeContentProviders)
         {
             return _chat.Invoke("PostNotification", notification, executeContentProviders);
@@ -203,7 +229,7 @@ namespace JabbR.Client
             return _chat.Invoke("PostNotification", notification);
         }
 
-        public Task CreateRoom(string roomName)
+        public async Task CreateRoom(string roomName)
         {
             var tcs = new TaskCompletionSource<object>();
 
@@ -212,15 +238,16 @@ namespace JabbR.Client
             createRoom = _chat.On<Room>(ClientEvents.RoomCreated, room =>
             {
                 createRoom.Dispose();
+
                 tcs.SetResult(null);
             });
 
-            SendCommand("create {0}", roomName).ContinueWithNotComplete(tcs);
+            await SendCommand("create {0}", roomName);
 
-            return tcs.Task;
+            await tcs.Task;
         }
 
-        public Task JoinRoom(string roomName)
+        public async Task JoinRoom(string roomName)
         {
             var tcs = new TaskCompletionSource<object>();
 
@@ -233,9 +260,9 @@ namespace JabbR.Client
                 tcs.SetResult(null);
             });
 
-            SendCommand("join {0}", roomName).ContinueWithNotComplete(tcs);
+            await SendCommand("join {0}", roomName);
 
-            return tcs.Task;
+            await tcs.Task;
         }
 
         public Task LeaveRoom(string roomName)
@@ -295,11 +322,6 @@ namespace JabbR.Client
 
         private void SubscribeToEvents()
         {
-            if (Interlocked.Exchange(ref _initialized, 1) != 0)
-            {
-                return;
-            }
-
             if (AutoReconnect)
             {
                 Disconnected += OnDisconnected;
@@ -330,12 +352,12 @@ namespace JabbR.Client
                 Execute(Kicked, kicked => kicked(room));
             });
 
-            _chat.On<Room, int>(ClientEvents.UpdateRoomCount, (room, count) =>
+            _chat.On<Room>(ClientEvents.UpdateRoom, (room) =>
             {
-                Execute(RoomCountChanged, roomCountChanged => roomCountChanged(room, count));
+                Execute(RoomChanged, roomChanged => roomChanged(room));
             });
 
-            _chat.On<User>(ClientEvents.UpdateActivity, user =>
+            _chat.On<User, string>(ClientEvents.UpdateActivity, (user, roomName) =>
             {
                 Execute(UserActivityChanged, userActivityChanged => userActivityChanged(user));
             });
@@ -380,9 +402,9 @@ namespace JabbR.Client
                 Execute(FlagChanged, flagChanged => flagChanged(user, room));
             });
 
-            _chat.On<Room>(ClientEvents.TopicChanged, (room) =>
+            _chat.On<string, string, string>(ClientEvents.TopicChanged, (roomName, topic, who) =>
             {
-                Execute(TopicChanged, topicChanged => topicChanged(room));
+                Execute(TopicChanged, topicChanged => topicChanged(roomName, topic, who));
             });
 
             _chat.On<User, string>(ClientEvents.OwnerAdded, (user, room) =>
@@ -406,27 +428,39 @@ namespace JabbR.Client
             });
         }
 
-        private void OnDisconnected()
+        private async void OnDisconnected()
         {
-            TaskAsyncHelper.Delay(TimeSpan.FromSeconds(5)).Then(() =>
+            await TaskAsyncHelper.Delay(TimeSpan.FromSeconds(5));
+
+            try
             {
-                _connection.Start(_transportFactory()).Then(() =>
-                {
-                    // Join JabbR
-                    _chat.Invoke("Join", false);
-                });
-            });
+                await _connection.Start(_transportFactory());
+
+                // Join JabbR
+                await _chat.Invoke("Join", false);
+            }
+            catch (Exception ex)
+            {
+                _connection.Trace(TraceLevels.Events, ex.Message);
+            }
         }
 
-        private static void Execute<T>(T handlers, Action<T> action) where T : class
+        private void Execute<T>(T handlers, Action<T> action) where T : class
         {
             Task.Factory.StartNew(() =>
             {
                 if (handlers != null)
                 {
-                    action(handlers);
+                    try
+                    {
+                        action(handlers);
+                    }
+                    catch (Exception ex)
+                    {
+                        _connection.Trace(TraceLevels.Events, ex.Message);
+                    }
                 }
-            }).Catch();
+            });
         }
 
         private Task SendCommand(string command, params object[] args)

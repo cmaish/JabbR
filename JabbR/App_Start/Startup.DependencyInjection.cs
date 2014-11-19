@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
+using JabbR.ContentProviders;
 using JabbR.ContentProviders.Core;
 using JabbR.Infrastructure;
 using JabbR.Models;
@@ -7,15 +9,13 @@ using JabbR.Nancy;
 using JabbR.Services;
 using JabbR.UploadHandlers;
 using Microsoft.AspNet.SignalR.Hubs;
-using Microsoft.AspNet.SignalR.Json;
 using Microsoft.Owin.Security.DataProtection;
-using Microsoft.Owin.Security.Forms;
-using Nancy.Authentication.WorldDomination;
+using Microsoft.Owin.Security.Cookies;
 using Nancy.Bootstrappers.Ninject;
+using Nancy.SimpleAuthentication;
 using Newtonsoft.Json;
 using Ninject;
-using Ninject.Extensions;
-using WorldDomination.Web.Authentication;
+using Microsoft.AspNet.SignalR;
 
 namespace JabbR
 {
@@ -28,6 +28,10 @@ namespace JabbR
             kernel.Bind<JabbrContext>()
                 .To<JabbrContext>();
 
+            kernel.Bind<IRecentMessageCache>()
+                  .To<NoopCache>()
+                  .InSingletonScope();
+
             kernel.Bind<IJabbrRepository>()
                 .To<PersistedRepository>();
 
@@ -37,11 +41,14 @@ namespace JabbR
             kernel.Bind<IDataProtector>()
                   .To<JabbRDataProtection>();
 
-            kernel.Bind<IFormsAuthenticationProvider>()
+            kernel.Bind<ICookieAuthenticationProvider>()
                   .To<JabbRFormsAuthenticationProvider>();
 
             kernel.Bind<ILogger>()
                   .To<RealtimeLogger>();
+
+            kernel.Bind<IUserIdProvider>()
+                  .To<JabbrUserIdProvider>();
 
             kernel.Bind<IJabbrConfiguration>()
                   .ToConstant(configuration);
@@ -52,25 +59,25 @@ namespace JabbR
                   .ToMethod(context =>
                   {
                       var resourceProcessor = context.Kernel.Get<ContentProviderProcessor>();
+                      var recentMessageCache = context.Kernel.Get<IRecentMessageCache>();
                       var repository = context.Kernel.Get<IJabbrRepository>();
                       var cache = context.Kernel.Get<ICache>();
                       var logger = context.Kernel.Get<ILogger>();
                       var settings = context.Kernel.Get<ApplicationSettings>();
 
-                      var service = new ChatService(cache, repository, settings);
+                      var service = new ChatService(cache, recentMessageCache, repository, settings);
 
                       return new Chat(resourceProcessor,
                                       service,
+                                      recentMessageCache,
                                       repository,
                                       cache,
-                                      logger);
+                                      logger,
+                                      settings);
                   });
 
             kernel.Bind<ICryptoService>()
                 .To<CryptoService>();
-
-            kernel.Bind<IResourceProcessor>()
-                .ToConstant(new ResourceProcessor(kernel));
 
             kernel.Bind<IJavaScriptMinifier>()
                   .To<AjaxMinMinifier>()
@@ -92,10 +99,10 @@ namespace JabbR
                   .To<DefaultUserAuthenticator>();
 
             kernel.Bind<IAuthenticationService>()
-                  .ToConstant(new AuthenticationService());
+                  .To<AuthenticationService>();
 
             kernel.Bind<IAuthenticationCallbackProvider>()
-                      .To<JabbRAuthenticationCallbackProvider>();
+                  .To<JabbRAuthenticationCallbackProvider>();
 
             kernel.Bind<ICache>()
                   .To<DefaultCache>()
@@ -106,6 +113,11 @@ namespace JabbR
 
             kernel.Bind<IKeyProvider>()
                       .To<SettingsKeyProvider>();
+
+            kernel.Bind<IResourceProcessor>()
+                .To<ResourceProcessor>();
+
+            RegisterContentProviders(kernel);
 
             var serializer = JsonSerializer.Create(new JsonSerializerSettings()
             {
@@ -125,7 +137,43 @@ namespace JabbR
             kernel.Bind<ContentProviderProcessor>()
                   .ToConstant(new ContentProviderProcessor(kernel));
 
+            kernel.Bind<IEmailTemplateContentReader>()
+                  .To<RazorEmailTemplateContentReader>();
+
+            kernel.Bind<IEmailTemplateEngine>()
+                  .To<RazorEmailTemplateEngine>();
+
+            kernel.Bind<IEmailSender>()
+                  .To<SmtpClientEmailSender>();
+
+            kernel.Bind<IEmailService>()
+                  .To<EmailService>();
+
             return kernel;
+        }
+
+        private static void RegisterContentProviders(IKernel kernel)
+        {
+            kernel.Bind<IContentProvider>().To<AudioContentProvider>();
+            kernel.Bind<IContentProvider>().To<BashQDBContentProvider>();
+            kernel.Bind<IContentProvider>().To<BBCContentProvider>();
+            kernel.Bind<IContentProvider>().To<DictionaryContentProvider>();
+            kernel.Bind<IContentProvider>().To<GitHubIssueCommentsContentProvider>();
+            kernel.Bind<IContentProvider>().To<GitHubIssuesContentProvider>();
+            kernel.Bind<IContentProvider>().To<GoogleDocsFormProvider>();
+            kernel.Bind<IContentProvider>().To<GoogleDocsPresentationsContentProvider>();
+            kernel.Bind<IContentProvider>().To<GoogleMapsContentProvider>();
+            kernel.Bind<IContentProvider>().To<ImageContentProvider>();
+            kernel.Bind<IContentProvider>().To<ImgurContentProvider>();
+            kernel.Bind<IContentProvider>().To<NerdDinnerContentProvider>();
+            kernel.Bind<IContentProvider>().To<NugetNuggetContentProvider>();
+            kernel.Bind<IContentProvider>().To<ScreencastContentProvider>();
+            kernel.Bind<IContentProvider>().To<SlideShareContentProvider>();
+            kernel.Bind<IContentProvider>().To<SoundCloudContentProvider>();
+            kernel.Bind<IContentProvider>().To<SpotifyContentProvider>();
+            kernel.Bind<IContentProvider>().To<UserVoiceContentProvider>();
+            kernel.Bind<IContentProvider>().To<UStreamContentProvider>();
+            kernel.Bind<IContentProvider>().To<YouTubeContentProvider>();
         }
     }
 }

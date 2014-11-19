@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using JabbR.Infrastructure;
 using JabbR.Models;
+using Microsoft.Owin;
 using Nancy;
 using Nancy.Helpers;
 using Nancy.Owin;
 using Newtonsoft.Json;
-using Owin.Types;
-using Owin.Types.Extensions;
 
 namespace JabbR.Nancy
 {
@@ -17,18 +16,12 @@ namespace JabbR.Nancy
         public static Response SignIn(this NancyModule module, IEnumerable<Claim> claims)
         {
             var env = Get<IDictionary<string, object>>(module.Context.Items, NancyOwinHost.RequestEnvironmentKey);
-            var owinResponse = new OwinResponse(env);
+            var owinContext = new OwinContext(env);
 
             var identity = new ClaimsIdentity(claims, Constants.JabbRAuthType);
-            owinResponse.SignIn(new ClaimsPrincipal(identity));
+            owinContext.Authentication.SignIn(identity);
 
-            string returnUrl = module.Request.Query.redirect_uri;
-            if (String.IsNullOrWhiteSpace(returnUrl))
-            {
-                returnUrl = "~/";
-            }
-
-            return module.Response.AsRedirect(returnUrl);
+            return module.AsRedirectQueryStringOrDefault("~/");
         }
 
         public static Response SignIn(this NancyModule module, ChatUser user)
@@ -48,9 +41,9 @@ namespace JabbR.Nancy
         public static void SignOut(this NancyModule module)
         {
             var env = Get<IDictionary<string, object>>(module.Context.Items, NancyOwinHost.RequestEnvironmentKey);
-            var owinResponse = new OwinResponse(env);
+            var owinContext = new OwinContext(env);
 
-            owinResponse.SignOut(Constants.JabbRAuthType);
+            owinContext.Authentication.SignOut(Constants.JabbRAuthType);
         }
 
         public static void AddValidationError(this NancyModule module, string propertyName, string errorMessage)
@@ -99,6 +92,17 @@ namespace JabbR.Nancy
         public static bool IsAuthenticated(this NancyModule module)
         {
             return module.GetPrincipal().IsAuthenticated();
+        }
+
+        public static Response AsRedirectQueryStringOrDefault(this NancyModule module, string defaultUrl)
+        {
+            string returnUrl = module.Request.Query.returnUrl;
+            if (String.IsNullOrWhiteSpace(returnUrl))
+            {
+                returnUrl = defaultUrl;
+            }
+
+            return module.Response.AsRedirect(returnUrl);
         }
 
         private static T Get<T>(IDictionary<string, object> env, string key)

@@ -1,21 +1,25 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Resources;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using JabbR.Infrastructure;
 using JabbR.Services;
+using JabbR.UploadHandlers;
 using JabbR.ViewModels;
+using Microsoft.AspNet.SignalR.Infrastructure;
+using Microsoft.Security.Application;
 using Nancy;
 
 namespace JabbR.Nancy
 {
     public class HomeModule : JabbRModule
     {
-        public HomeModule(ApplicationSettings settings, 
-                          IJabbrConfiguration configuration, 
-                          UploadCallbackHandler uploadHandler)
+        public HomeModule(ApplicationSettings settings,
+                          IJabbrConfiguration configuration,
+                          IConnectionManager connectionManager,
+                          IJabbrRepository jabbrRepository)
         {
             Get["/"] = _ =>
             {
@@ -29,13 +33,15 @@ namespace JabbR.Nancy
                         Time = configuration.DeploymentTime,
                         DebugMode = (bool)Context.Items["_debugMode"],
                         Version = Constants.JabbRVersion,
-                        IsAdmin = Principal.HasClaim(JabbRClaimTypes.Admin)
+                        IsAdmin = Principal.HasClaim(JabbRClaimTypes.Admin),
+                        ClientLanguageResources = BuildClientResources(),
+                        MaxMessageLength = settings.MaxMessageLength
                     };
 
                     return View["index", viewModel];
                 }
 
-                if (Principal.HasPartialIdentity())
+                if (Principal != null && Principal.HasPartialIdentity())
                 {
                     // If the user is partially authenticated then take them to the register page
                     return Response.AsRedirect("~/account/register");
@@ -51,77 +57,215 @@ namespace JabbR.Nancy
                 if (principal == null ||
                     !principal.HasClaim(JabbRClaimTypes.Admin))
                 {
-                    return 403;
+                    return HttpStatusCode.Forbidden;
                 }
 
                 return View["monitor"];
             };
 
-            Post["/upload"] = _ =>
+            Get["/status", runAsync: true] = async (_, token) =>
             {
-                if (!IsAuthenticated)
+                var model = new StatusViewModel();
+
+                // Try to send a message via SignalR
+                // NOTE: Ideally we'd like to actually receive a message that we send, but right now
+                // that would require a full client instance. SignalR 2.1.0 plans to add a feature to
+                // easily support this on the server.
+                var signalrStatus = new SystemStatus { SystemName = "SignalR messaging" };
+                model.Systems.Add(signalrStatus);
+
+                try
                 {
-                    return 403;
+                    var hubContext = connectionManager.GetHubContext<Chat>();
+                    await (Task)hubContext.Clients.Client("doesn't exist").noMethodCalledThis();
+                    
+                    signalrStatus.SetOK();
+                }
+                catch (Exception ex)
+                {
+                    signalrStatus.SetException(ex.GetBaseException());
                 }
 
-                string roomName = Request.Form.room;
-                string connectionId = Request.Form.connectionId;
-                HttpFile file = Request.Files.First();
+                // Try to talk to database
+                var dbStatus = new SystemStatus { SystemName = "Database" };
+                model.Systems.Add(dbStatus);
 
-                // This blocks since we're not using nancy's async support yet
-                UploadFile(
-                    uploadHandler,
-                    Principal.GetUserId(),
-                    connectionId,
-                    roomName,
-                    file.Name,
-                    file.ContentType,
-                    file.Value).Wait();
-
-                return 200;
-            };
-
-            Post["/upload-clipboard"] = _ =>
+                try
                 {
-                    if (!IsAuthenticated)
+                    var roomCount = jabbrRepository.Rooms.Count();
+                    dbStatus.SetOK();
+                }
+                catch (Exception ex)
+                {
+                    dbStatus.SetException(ex.GetBaseException());
+                }
+
+                // Try to talk to azure storage
+                var azureStorageStatus = new SystemStatus { SystemName = "Azure Upload storage" };
+                model.Systems.Add(azureStorageStatus);
+
+                try
+                {
+                    if (!String.IsNullOrEmpty(settings.AzureblobStorageConnectionString))
                     {
-                        return 403;
+                        var azure = new AzureBlobStorageHandler(settings);
+                        UploadResult result;
+                        using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("test")))
+                        {
+                            result = await azure.UploadFile("statusCheck.txt", "text/plain", stream);
+                        }
+
+                        azureStorageStatus.SetOK();
                     }
+                    else
+                    {
+                        azureStorageStatus.StatusMessage = "Not configured";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    azureStorageStatus.SetException(ex.GetBaseException());
+                }
 
-                    string roomName = Request.Form.room;
-                    string connectionId = Request.Form.connectionId;
-                    string file = Request.Form.file;
-                    string fileName = "clipboard_" + Guid.NewGuid().ToString("N");
-                    string contentType = "image/jpeg";
+                //try to talk to local storage
+                var localStorageStatus = new SystemStatus { SystemName = "Local Upload storage" };
+                model.Systems.Add(localStorageStatus);
 
-                    var info = Regex.Match(file, @"data:image/(?<type>.+?);base64,(?<data>.+)");
+                try
+                {
+                    if (!String.IsNullOrEmpty(settings.LocalFileSystemStoragePath) && !String.IsNullOrEmpty(settings.LocalFileSystemStorageUriPrefix))
+                    {
+                        var local = new LocalFileSystemStorageHandler(settings);
+                        UploadResult localResult;
+                        using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("test")))
+                        {
+                            localResult = await local.UploadFile("statusCheck.txt", "text/plain", stream);
+                        }
 
-                    var binData = Convert.FromBase64String(info.Groups["data"].Value);
-                    contentType = info.Groups["type"].Value;
+                        localStorageStatus.SetOK();
+                    }
+                    else
+                    {
+                        localStorageStatus.StatusMessage = "Not configured";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    localStorageStatus.SetException(ex.GetBaseException());
+                }
 
-                    fileName = fileName + "." + contentType.Substring(contentType.IndexOf("/") + 1);
+                // Force failure
+                if (Context.Request.Query.fail)
+                {
+                    var failedSystem = new SystemStatus { SystemName = "Forced failure" };
+                    failedSystem.SetException(new ApplicationException("Forced failure for test purposes"));
+                    model.Systems.Add(failedSystem);
+                }
 
-                    UploadFile(
-                        uploadHandler,
-                        Principal.GetUserId(),
-                        connectionId,
-                        roomName,
-                        fileName,
-                        contentType,
-                        new MemoryStream(binData)).Wait();
+                var view = View["status", model];
 
-                    return 200;
-                };
+                if (!model.AllOK)
+                {
+                    return view.WithStatusCode(HttpStatusCode.InternalServerError);
+                }
+
+                return view;
+            };
         }
 
-        private static Task UploadFile(UploadCallbackHandler uploadHandler, string userName, string connectionId, string roomName, string fileName, string contentType, Stream value)
+        private static string BuildClientResources()
         {
-            return uploadHandler.Upload(userName,
-                                 connectionId,
-                                 roomName,
-                                 fileName,
-                                 contentType,
-                                 value);
+            var resourcesToEmbed = new string[]
+            {
+                "Content_HeaderAndToggle",
+                "Chat_YouEnteredRoom",
+                "Chat_UserLockedRoom",
+                "Chat_RoomNowLocked",
+                "Chat_RoomNowClosed",
+                "Chat_RoomNowOpen",
+                "Chat_UserEnteredRoom",
+                "Chat_UserNameChanged",
+                "Chat_UserGravatarChanged",
+                "Chat_YouGrantedRoomAccess",
+                "Chat_UserGrantedRoomAccess",
+                "Chat_YourRoomAccessRevoked",
+                "Chat_YouRevokedUserRoomAccess",
+                "Chat_UserGrantedRoomOwnership",
+                "Chat_UserRoomOwnershipRevoked",
+                "Chat_YouGrantedRoomOwnership",
+                "Chat_YourRoomOwnershipRevoked",
+                "Chat_YourGravatarChanged",
+                "Chat_YouAreAfk",
+                "Chat_YouAreAfkNote",
+                "Chat_YourNoteSet",
+                "Chat_YourNoteCleared",
+                "Chat_UserIsAfk",
+                "Chat_UserIsAfkNote",
+                "Chat_UserNoteSet",
+                "Chat_UserNoteCleared",
+                "Chat_YouSetRoomTopic",
+                "Chat_YouClearedRoomTopic",
+                "Chat_UserSetRoomTopic",
+                "Chat_UserClearedRoomTopic",
+                "Chat_YouSetRoomWelcome",
+                "Chat_YouClearedRoomWelcome",
+                "Chat_YouSetFlag",
+                "Chat_YouClearedFlag",
+                "Chat_UserSetFlag",
+                "Chat_UserClearedFlag",
+                "Chat_YourNameChanged",
+                "Chat_UserPerformsAction",
+                "Chat_PrivateMessage",
+                "Chat_UserInvitedYouToRoom",
+                "Chat_YouInvitedUserToRoom",
+                "Chat_UserNudgedYou",
+                "Chat_UserNudgedRoom",
+                "Chat_UserNudgedUser",
+                "Chat_UserLeftRoom",
+                "Chat_YouKickedFromRoom",
+                "Chat_RoomUsersHeader",
+                "Chat_RoomUsersEmpty",
+                "Chat_RoomSearchEmpty",
+                "Chat_RoomSearchResults",
+                "Chat_RoomNotPrivateAllowed",
+                "Chat_RoomPrivateNoUsersAllowed",
+                "Chat_RoomPrivateUsersAllowedResults",
+                "Chat_UserNotInRooms",
+                "Chat_UserInRooms",
+                "Chat_UserOwnsNoRooms",
+                "Chat_UserOwnsRooms",
+                "Chat_UserAdminAllowed",
+                "Chat_UserAdminRevoked",
+                "Chat_YouAdminAllowed",
+                "Chat_YouAdminRevoked",
+                "Chat_AdminBroadcast",
+                "Chat_CannotSendLobby",
+                "Chat_InitialMessages",
+                "Chat_UserOwnerHeader",
+                "Chat_UserHeader",
+                "Content_DisabledMessage",
+                "Chat_DefaultTopic",
+                "Client_ConnectedStatus",
+                "Client_Transport",
+                "Client_Uploading",
+                "Client_Rooms",
+                "Client_OtherRooms",
+                "Chat_ExpandHiddenMessages",
+                "Chat_CollapseHiddenMessages",
+                "Client_Connected",
+                "Client_Reconnecting",
+                "Client_Disconnected",
+                "Client_AdminTag",
+                "Client_OccupantsZero",
+                "Client_OccupantsOne",
+                "Client_OccupantsMany",
+                "LoadingMessage",
+                "Client_LoadMore",
+                "Client_UploadingFromClipboard"
+            };
+
+            var resourceManager = new ResourceManager(typeof(LanguageResources));
+            return String.Join(",", resourcesToEmbed.Select(e => string.Format("'{0}': {1}", e, Encoder.JavaScriptEncode(resourceManager.GetString(e)))));
         }
     }
 }

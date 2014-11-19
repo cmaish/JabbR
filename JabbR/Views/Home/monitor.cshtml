@@ -3,6 +3,7 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
+    <meta charset="UTF-8" />
     <title></title>
 </head>
 <body>
@@ -11,10 +12,10 @@
 
     @{
         WriteLiteral(Bundle.JavaScript().ForceRelease()
-            .Add("~/Scripts/jquery-1.9.0.min.js")
-            .Add("~/Scripts/jquery-migrate-1.0.0.min.js")
+            .Add("~/Scripts/jquery-2.0.3.min.js")
+            .Add("~/Scripts/jquery-migrate-1.2.1.min.js")
             .Add("~/Scripts/json2.min.js")
-            .Add("~/Scripts/jquery.signalR-2.0.0-beta2-130602-b51.min.js")
+            .Add("~/Scripts/jquery.signalR-2.1.0-pre-140513-b35.min.js")
             .Render("~/Scripts/JabbR3_#.js"));
     }
     <script type="text/javascript" src="@Url.Content("~/signalr/hubs")"></script>
